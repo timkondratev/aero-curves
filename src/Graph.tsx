@@ -26,9 +26,6 @@ export function Graph({ width, height }: GraphProps) {
   const innerWidth = width - MARGIN.left - MARGIN.right;
   const innerHeight = height - MARGIN.top - MARGIN.bottom;
 
-  // --------------------
-  // STATEFUL POINTS
-  // --------------------
   const [points, setPoints] = useState<Point[]>(() => {
     const count = 16;
     return Array.from({ length: count }, (_, i) => {
@@ -45,9 +42,6 @@ export function Graph({ width, height }: GraphProps) {
     [points]
   );
 
-  // --------
-  // SCALES
-  // --------
   const xScale = useMemo(
     () =>
       scaleLinear()
@@ -67,27 +61,17 @@ export function Graph({ width, height }: GraphProps) {
   const xTicks = xScale.ticks(9);
   const yTicks = yScale.ticks(5);
 
-  const screenToDomain = (clientX: number, clientY: number) => {
-    const svgX = clientX - MARGIN.left;
-    const svgY = clientY - MARGIN.top;
-
-    const x = xScale.invert(
-      Math.max(0, Math.min(innerWidth, svgX))
-    );
-    const y = yScale.invert(
-      Math.max(0, Math.min(innerHeight, svgY))
-    );
-
+  // Convert pointer to SVG local coords
+  const getSvgCoords = (e: React.PointerEvent | React.MouseEvent) => {
+    //@ts-ignore
+    const svg = (e.currentTarget.ownerSVGElement ?? e.currentTarget) as SVGSVGElement;
+    const rect = svg.getBoundingClientRect();
     return {
-      x: Math.max(X_DOMAIN[0], Math.min(X_DOMAIN[1], x)),
-      y: Math.max(Y_DOMAIN[0], Math.min(Y_DOMAIN[1], y)),
+      x: e.clientX - rect.left - MARGIN.left,
+      y: e.clientY - rect.top - MARGIN.top,
     };
   };
 
-
-  // --------
-  // CURVE
-  // --------
   const pathD = useMemo(() => {
     return (
       line<Point>()
@@ -97,24 +81,13 @@ export function Graph({ width, height }: GraphProps) {
     );
   }, [sortedPoints, xScale, yScale]);
 
-  // --------
-  // DRAG HANDLER (XY)
-  // --------
-  const updatePoint = (
-    index: number,
-    clientX: number,
-    clientY: number
-  ) => {
-    const svgX = clientX - MARGIN.left;
-    const svgY = clientY - MARGIN.top;
+  const updatePoint = (index: number, svgX: number, svgY: number) => {
+    const clampedX = Math.max(0, Math.min(innerWidth, svgX));
+    const clampedY = Math.max(0, Math.min(innerHeight, svgY));
 
-    const clampedSvgX = Math.max(0, Math.min(innerWidth, svgX));
-    const clampedSvgY = Math.max(0, Math.min(innerHeight, svgY));
+    let x = xScale.invert(clampedX);
+    let y = yScale.invert(clampedY);
 
-    let x = xScale.invert(clampedSvgX);
-    let y = yScale.invert(clampedSvgY);
-
-    // Clamp Y to domain
     y = Math.max(Y_DOMAIN[0], Math.min(Y_DOMAIN[1], y));
 
     setPoints(prev => {
@@ -123,12 +96,11 @@ export function Graph({ width, height }: GraphProps) {
       const left = sorted[index - 1]?.x ?? X_DOMAIN[0];
       const right = sorted[index + 1]?.x ?? X_DOMAIN[1];
 
-      // Clamp X between neighbors
       x = Math.max(left, Math.min(right, x));
 
-      const updated = [...sorted];
-      updated[index] = { x, y };
-      return updated;
+      const next = [...sorted];
+      next[index] = { x, y };
+      return next;
     });
   };
 
@@ -137,15 +109,17 @@ export function Graph({ width, height }: GraphProps) {
       width={width}
       height={height}
       onDoubleClick={e => {
-        const { x, y } = screenToDomain(e.clientX, e.clientY);
+        const { x, y } = getSvgCoords(e);
 
-        setPoints(prev => {
-          const next = [...prev, { x, y }];
-          return next.sort((a, b) => a.x - b.x);
-        });
-      }}>
+        const domainX = xScale.invert(Math.max(0, Math.min(innerWidth, x)));
+        const domainY = yScale.invert(Math.max(0, Math.min(innerHeight, y)));
+
+        setPoints(prev =>
+          [...prev, { x: domainX, y: domainY }].sort((a, b) => a.x - b.x)
+        );
+      }}
+    >
       <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-
         {/* AXES */}
         <line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke="black" />
         {xTicks.map(tick => (
@@ -154,7 +128,6 @@ export function Graph({ width, height }: GraphProps) {
             <text y={20} textAnchor="middle" fontSize={12}>{tick}</text>
           </g>
         ))}
-
         <line x1={0} x2={0} y1={0} y2={innerHeight} stroke="black" />
         {yTicks.map(tick => (
           <g key={tick} transform={`translate(0, ${yScale(tick)})`}>
@@ -178,30 +151,22 @@ export function Graph({ width, height }: GraphProps) {
             style={{ cursor: "move" }}
             onDoubleClick={e => {
               e.stopPropagation();
-
               setPoints(prev => {
                 if (prev.length <= MIN_POINTS) return prev;
-
                 const sorted = [...prev].sort((a, b) => a.x - b.x);
-
-                // Protect endpoints
                 if (i === 0 || i === sorted.length - 1) return prev;
-
                 return sorted.filter((_, idx) => idx !== i);
               });
             }}
-            onPointerDown={e =>
-              e.currentTarget.setPointerCapture(e.pointerId)
-            }
+            onPointerDown={e => e.currentTarget.setPointerCapture(e.pointerId)}
             onPointerMove={e => {
               if (e.buttons === 1) {
-                updatePoint(i, e.clientX, e.clientY);
+                const { x, y } = getSvgCoords(e);
+                updatePoint(i, x, y);
               }
             }}
           />
-
         ))}
-
       </g>
     </svg>
   );
