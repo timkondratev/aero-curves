@@ -106,6 +106,7 @@ export function Graph({ width, height }: GraphProps) {
 
   return (
     <svg
+      className="graph"
       width={width}
       height={height}
       onDoubleClick={e => {

@@ -1,0 +1,7 @@
+/* App.css or Graph.css */
+.graph, .graph * {
+  user-select: none;      /* standard */
+  -webkit-user-select: none; /* Safari/Chrome */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none;  /* IE/Edge */
+}
