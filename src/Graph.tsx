@@ -25,6 +25,7 @@ export function Graph({ width, height }: GraphProps) {
   const dragStart = useRef<{ x: number; y: number } | null>(null); // pointer start coords
   const dragPointsStart = useRef<Point[]>([]); // positions of points at drag start
   const isDraggingPoints = useRef(false);
+  const wasDragging = useRef(false); // Track if dragging occurred
 
   const sortedPoints = useMemo(() => [...points].sort((a, b) => a.x - b.x), [points]);
 
@@ -87,12 +88,14 @@ export function Graph({ width, height }: GraphProps) {
     const { x } = getSvgCoords(e);
     setBrush({ x0: x, x1: x });
     isDraggingPoints.current = false;
+    wasDragging.current = false; // Reset dragging state
   };
 
   const handleBackgroundPointerMove = (e: React.PointerEvent) => {
     if (!isDraggingPoints.current && brush) {
       const { x } = getSvgCoords(e);
       setBrush(prev => prev ? { x0: prev.x0, x1: x } : null);
+      wasDragging.current = true; // Mark as dragging
 
       // Update selection
       const [bx0, bx1] = [Math.min(brush.x0, x), Math.max(brush.x0, x)];
@@ -109,6 +112,9 @@ export function Graph({ width, height }: GraphProps) {
   };
 
   const handleBackgroundPointerUp = () => {
+    if (!wasDragging.current) {
+      setSelectedIndices(new Set()); // Deselect points if no drag occurred
+    }
     setBrush(null);
     dragStart.current = null;
     isDraggingPoints.current = false;
