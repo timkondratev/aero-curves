@@ -1,18 +1,22 @@
 import { scaleLinear, line, curveMonotoneX } from "d3";
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 
-type GraphProps = { width: number; height: number };
-type Point = { x: number; y: number };
-
+// Constants
 const MARGIN = { top: 20, right: 20, bottom: 40, left: 50 };
 const X_DOMAIN: [number, number] = [-180, 180];
 const Y_DOMAIN: [number, number] = [-1, 1];
 const MIN_POINTS = 2;
 
+// Types
+type GraphProps = { width: number; height: number };
+type Point = { x: number; y: number };
+
 export function Graph({ width, height }: GraphProps) {
+  // Dimensions
   const innerWidth = width - MARGIN.left - MARGIN.right;
   const innerHeight = height - MARGIN.top - MARGIN.bottom;
 
+  // State
   const [points, setPoints] = useState<Point[]>(() =>
     Array.from({ length: 16 }, (_, i) => {
       const x = X_DOMAIN[0] + ((X_DOMAIN[1] - X_DOMAIN[0]) * i) / 15;
@@ -22,19 +26,33 @@ export function Graph({ width, height }: GraphProps) {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [brush, setBrush] = useState<{ x0: number; x1: number } | null>(null);
 
-  const dragStart = useRef<{ x: number; y: number } | null>(null); // pointer start coords
-  const dragPointsStart = useRef<Point[]>([]); // positions of points at drag start
+  // Refs
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const dragPointsStart = useRef<Point[]>([]);
   const isDraggingPoints = useRef(false);
-  const wasDragging = useRef(false); // Track if dragging occurred
+  const wasDragging = useRef(false);
+  const animationFrameRef = useRef<number | null>(null);
 
-  const sortedPoints = useMemo(() => [...points].sort((a, b) => a.x - b.x), [points]);
-
+  // Scales
   const xScale = useMemo(() => scaleLinear().domain(X_DOMAIN).range([0, innerWidth]), [innerWidth]);
   const yScale = useMemo(() => scaleLinear().domain(Y_DOMAIN).range([innerHeight, 0]), [innerHeight]);
 
+  // Ticks
   const xTicks = xScale.ticks(9);
   const yTicks = yScale.ticks(5);
 
+  // Derived Data
+  const sortedPoints = useMemo(() => [...points].sort((a, b) => a.x - b.x), [points]);
+  const pathD = useMemo(() => {
+    return (
+      line<Point>()
+        .x(d => xScale(d.x))
+        .y(d => yScale(d.y))
+        .curve(curveMonotoneX)(sortedPoints) ?? ""
+    );
+  }, [sortedPoints, xScale, yScale]);
+
+  // Utility Functions
   const getSvgCoords = (e: React.PointerEvent | React.MouseEvent) => {
     //@ts-ignore
     const svg = (e.currentTarget.ownerSVGElement ?? e.currentTarget) as SVGSVGElement;
@@ -42,15 +60,9 @@ export function Graph({ width, height }: GraphProps) {
     return { x: e.clientX - rect.left - MARGIN.left, y: e.clientY - rect.top - MARGIN.top };
   };
 
-  const pathD = useMemo(() => {
-    return line<Point>()
-      .x(d => xScale(d.x))
-      .y(d => yScale(d.y))
-      .curve(curveMonotoneX)(sortedPoints) ?? '';
-  }, [sortedPoints, xScale, yScale]);
-
   const isModifier = (e: React.PointerEvent) => e.shiftKey || e.ctrlKey || e.metaKey;
 
+  // Drag Handlers
   const startPointDrag = (index: number, e: React.PointerEvent) => {
     dragStart.current = getSvgCoords(e);
     isDraggingPoints.current = true;
@@ -60,44 +72,70 @@ export function Graph({ width, height }: GraphProps) {
   const movePoints = (svgX: number, svgY: number) => {
     if (!isDraggingPoints.current || !dragStart.current) return;
 
-    const dx = xScale.invert(svgX) - xScale.invert(dragStart.current.x);
-    const dy = yScale.invert(svgY) - yScale.invert(dragStart.current.y);
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
 
-    setPoints(prev => {
-      const next = [...prev];
-      selectedIndices.forEach(i => {
-        let x = dragPointsStart.current[i].x + dx;
-        let y = dragPointsStart.current[i].y + dy;
+    animationFrameRef.current = requestAnimationFrame(() => {
+      const dx = xScale.invert(svgX) - xScale.invert(dragStart.current!.x);
+      const dy = yScale.invert(svgY) - yScale.invert(dragStart.current!.y);
 
-        // Clamp X/Y to domains
-        x = Math.max(X_DOMAIN[0], Math.min(X_DOMAIN[1], x));
-        y = Math.max(Y_DOMAIN[0], Math.min(Y_DOMAIN[1], y));
+      setPoints(prev => {
+        const next = [...prev];
+        selectedIndices.forEach(i => {
+          let x = dragPointsStart.current[i].x + dx;
+          let y = dragPointsStart.current[i].y + dy;
 
-        // Optional: clamp X between neighbors for monotone curve
-        const left = dragPointsStart.current[i - 1]?.x ?? X_DOMAIN[0];
-        const right = dragPointsStart.current[i + 1]?.x ?? X_DOMAIN[1];
-        x = Math.max(left, Math.min(right, x));
+          // Clamp X/Y to domains
+          x = Math.max(X_DOMAIN[0], Math.min(X_DOMAIN[1], x));
+          y = Math.max(Y_DOMAIN[0], Math.min(Y_DOMAIN[1], y));
 
-        next[i] = { x, y };
+          // Optional: clamp X between neighbors for monotone curve
+          const left = dragPointsStart.current[i - 1]?.x ?? X_DOMAIN[0];
+          const right = dragPointsStart.current[i + 1]?.x ?? X_DOMAIN[1];
+          x = Math.max(left, Math.min(right, x));
+
+          next[i] = { x, y };
+        });
+        return next;
       });
-      return next;
     });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
+  // Pointer Handlers
+  const handlePointPointerDown = (i: number, e: React.PointerEvent) => {
+    e.stopPropagation();
+    handlePointClick(i, e);
+    startPointDrag(i, e);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointPointerUp = (e: React.PointerEvent) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    isDraggingPoints.current = false;
   };
 
   const handleBackgroundPointerDown = (e: React.PointerEvent) => {
     const { x } = getSvgCoords(e);
     setBrush({ x0: x, x1: x });
     isDraggingPoints.current = false;
-    wasDragging.current = false; // Reset dragging state
+    wasDragging.current = false;
   };
 
   const handleBackgroundPointerMove = (e: React.PointerEvent) => {
     if (!isDraggingPoints.current && brush) {
       const { x } = getSvgCoords(e);
-      setBrush(prev => prev ? { x0: prev.x0, x1: x } : null);
-      wasDragging.current = true; // Mark as dragging
+      setBrush(prev => (prev ? { x0: prev.x0, x1: x } : null));
+      wasDragging.current = true;
 
-      // Update selection
       const [bx0, bx1] = [Math.min(brush.x0, x), Math.max(brush.x0, x)];
       setSelectedIndices(prev => {
         const newSelection = new Set(isModifier(e) ? prev : []);
@@ -108,12 +146,11 @@ export function Graph({ width, height }: GraphProps) {
         return newSelection;
       });
     }
-
   };
 
   const handleBackgroundPointerUp = () => {
     if (!wasDragging.current) {
-      setSelectedIndices(new Set()); // Deselect points if no drag occurred
+      setSelectedIndices(new Set());
     }
     setBrush(null);
     dragStart.current = null;
@@ -134,37 +171,25 @@ export function Graph({ width, height }: GraphProps) {
     }
   };
 
-  const handlePointPointerDown = (i: number, e: React.PointerEvent) => {
-    e.stopPropagation();
-    handlePointClick(i, e);
-    startPointDrag(i, e);
-    e.currentTarget.setPointerCapture(e.pointerId); // Capture pointer events
-  };
-
-  const handlePointPointerUp = (e: React.PointerEvent) => {
-    e.currentTarget.releasePointerCapture(e.pointerId); // Release pointer events
-    isDraggingPoints.current = false;
-  };
-
   return (
     <svg
       className="graph"
       width={width}
       height={height}
-      style={{ userSelect: 'none', touchAction: 'none' }}
+      style={{ userSelect: "none", touchAction: "none" }}
       onDoubleClick={e => {
         const { x, y } = getSvgCoords(e);
         const domainX = xScale.invert(Math.max(0, Math.min(innerWidth, x)));
         const domainY = yScale.invert(Math.max(0, Math.min(innerHeight, y)));
         setPoints(prev => [...prev, { x: domainX, y: domainY }].sort((a, b) => a.x - b.x));
-        setSelectedIndices(new Set()); // <-- clear selection on add
+        setSelectedIndices(new Set());
       }}
       onPointerDown={handleBackgroundPointerDown}
       onPointerMove={handleBackgroundPointerMove}
       onPointerUp={handleBackgroundPointerUp}
     >
       <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-        {/* AXES */}
+        {/* Axes */}
         <line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke="black" />
         {xTicks.map(tick => (
           <g key={tick} transform={`translate(${xScale(tick)}, ${innerHeight})`}>
@@ -180,10 +205,10 @@ export function Graph({ width, height }: GraphProps) {
           </g>
         ))}
 
-        {/* CURVE */}
+        {/* Curve */}
         <path d={pathD} fill="none" stroke="steelblue" strokeWidth={2} />
 
-        {/* BRUSH */}
+        {/* Brush */}
         {brush && (
           <rect
             x={Math.min(brush.x0, brush.x1)}
@@ -194,16 +219,16 @@ export function Graph({ width, height }: GraphProps) {
           />
         )}
 
-        {/* CONTROL POINTS */}
+        {/* Control Points */}
         {sortedPoints.map((p, i) => (
           <circle
             key={i}
             cx={xScale(p.x)}
             cy={yScale(p.y)}
             r={6}
-            fill={selectedIndices.has(i) ? 'orange' : 'white'}
+            fill={selectedIndices.has(i) ? "orange" : "white"}
             stroke="black"
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: "pointer" }}
             onPointerDown={e => handlePointPointerDown(i, e)}
             onPointerMove={e => {
               if (isDraggingPoints.current) {
@@ -220,7 +245,7 @@ export function Graph({ width, height }: GraphProps) {
                 if (i === 0 || i === sorted.length - 1) return prev;
                 return sorted.filter((_, idx) => idx !== i);
               });
-              setSelectedIndices(new Set()); // <-- clear selection on delete
+              setSelectedIndices(new Set());
             }}
           />
         ))}
