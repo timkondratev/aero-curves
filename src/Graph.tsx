@@ -64,6 +64,30 @@ export function Graph({ width, height }: GraphProps) {
     return { x: meanX, y: meanY };
   }, [selectedIndices, points]);
 
+  // Snapping state
+  const [snapX, setSnapX] = useState(false);
+  const [snapY, setSnapY] = useState(false);
+  const [snapPrecisionX, setSnapPrecisionX] = useState(1.0);
+  const [snapPrecisionY, setSnapPrecisionY] = useState(1.0);
+
+  const snapValue = (value: number, precision: number) => {
+    return Math.round(value / precision) * precision;
+  };
+
+  // Local state for input fields
+  const [inputX, setInputX] = useState<string>("");
+  const [inputY, setInputY] = useState<string>("");
+
+  useEffect(() => {
+    if (meanCoordinates) {
+      setInputX(meanCoordinates.x.toFixed(2));
+      setInputY(meanCoordinates.y.toFixed(2));
+    } else {
+      setInputX("");
+      setInputY("");
+    }
+  }, [meanCoordinates]);
+
   // Utility Functions
   const getSvgCoords = (e: React.PointerEvent | React.MouseEvent) => {
     //@ts-ignore
@@ -80,18 +104,15 @@ export function Graph({ width, height }: GraphProps) {
       selectedIndices.forEach(i => {
         next[i] = {
           ...next[i],
-          [axis]: value,
+          [axis]: axis === "x" && snapX
+            ? snapValue(value, snapPrecisionX) // Apply snapping for X
+            : axis === "y" && snapY
+            ? snapValue(value, snapPrecisionY) // Apply snapping for Y
+            : value,
         };
       });
       return next;
     });
-  };
-
-  // Drag Handlers
-  const startPointDrag = (index: number, e: React.PointerEvent) => {
-    dragStart.current = getSvgCoords(e);
-    isDraggingPoints.current = true;
-    dragPointsStart.current = points.map(p => ({ ...p }));
   };
 
   const movePoints = (svgX: number, svgY: number) => {
@@ -110,6 +131,10 @@ export function Graph({ width, height }: GraphProps) {
         selectedIndices.forEach(i => {
           let x = dragPointsStart.current[i].x + dx;
           let y = dragPointsStart.current[i].y + dy;
+
+          // Apply snapping if enabled
+          x = snapX ? snapValue(x, snapPrecisionX) : x;
+          y = snapY ? snapValue(y, snapPrecisionY) : y;
 
           // Find nearest unselected neighbors
           const left = dragPointsStart.current
@@ -141,6 +166,12 @@ export function Graph({ width, height }: GraphProps) {
   }, []);
 
   // Pointer Handlers
+  const startPointDrag = (i: number, e: React.PointerEvent) => {
+    dragStart.current = getSvgCoords(e);
+    dragPointsStart.current = [...points];
+    isDraggingPoints.current = true;
+  };
+
   const handlePointPointerDown = (i: number, e: React.PointerEvent) => {
     e.stopPropagation();
     wasPointClicked.current = true; // Mark that a point was clicked
@@ -212,25 +243,34 @@ export function Graph({ width, height }: GraphProps) {
     }
   };
 
+  const handleInputBlur = (axis: "x" | "y") => {
+    const value = axis === "x" ? parseFloat(inputX) : parseFloat(inputY);
+    if (!isNaN(value)) {
+      updateCoordinates(axis, value);
+    }
+  };
+
   return (
-    <div className="curve-editor" style={{ position: "relative", width, height: height + 40 }}>
+    <div className="curve-editor" style={{ position: "relative", width, height: height + 80 }}> {/* Adjusted height for both panels */}
       {/* Inspector Panel */}
       <div
         style={{
           height: 40,
           display: "flex",
           alignItems: "center",
-          justifyContent: "left",
+          justifyContent: "space-between",
           backgroundColor: "#f0f0f0",
           padding: "0 10px",
+          borderBottom: "1px solid #ccc",
         }}
       >
         <label>
           X:
           <input
-            type="number"
-            value={meanCoordinates?.x.toFixed(2) || ""}
-            onChange={e => meanCoordinates && updateCoordinates("x", parseFloat(e.target.value))}
+            type="text"
+            value={inputX}
+            onChange={e => setInputX(e.target.value)}
+            onBlur={() => handleInputBlur("x")}
             style={{ marginLeft: 5, width: 80 }}
             disabled={!meanCoordinates} // Disable input if no points are selected
           />
@@ -238,17 +278,37 @@ export function Graph({ width, height }: GraphProps) {
         <label>
           Y:
           <input
-            type="number"
-            value={meanCoordinates?.y.toFixed(2) || ""}
-            onChange={e => meanCoordinates && updateCoordinates("y", parseFloat(e.target.value))}
+            type="text"
+            value={inputY}
+            onChange={e => setInputY(e.target.value)}
+            onBlur={() => handleInputBlur("y")}
             style={{ marginLeft: 5, width: 80 }}
             disabled={!meanCoordinates} // Disable input if no points are selected
           />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={snapX}
+            onChange={e => setSnapX(e.target.checked)}
+            style={{ marginLeft: 10 }}
+          />
+          Snap X
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={snapY}
+            onChange={e => setSnapY(e.target.checked)}
+            style={{ marginLeft: 10 }}
+          />
+          Snap Y
         </label>
       </div>
 
       {/* SVG Graph */}
       <svg
+        className="graph"
         width={width}
         height={height}
         style={{ userSelect: "none", touchAction: "none" }}
@@ -326,6 +386,44 @@ export function Graph({ width, height }: GraphProps) {
           ))}
         </g>
       </svg>
+
+      {/* Snapping Precision Panel */}
+      <div
+        style={{
+          height: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: "#f0f0f0",
+          padding: "0 10px",
+          borderTop: "1px solid #ccc",
+        }}
+      >
+        <label>
+          Snap Precision X:
+          <select
+            value={snapPrecisionX}
+            onChange={e => setSnapPrecisionX(parseFloat(e.target.value))}
+            style={{ marginLeft: 5 }}
+          >
+            <option value={1.0}>1.0</option>
+            <option value={0.1}>0.1</option>
+            <option value={0.01}>0.01</option>
+          </select>
+        </label>
+        <label>
+          Snap Precision Y:
+          <select
+            value={snapPrecisionY}
+            onChange={e => setSnapPrecisionY(parseFloat(e.target.value))}
+            style={{ marginLeft: 5 }}
+          >
+            <option value={1.0}>1.0</option>
+            <option value={0.1}>0.1</option>
+            <option value={0.01}>0.01</option>
+          </select>
+        </label>
+      </div>
     </div>
   );
 }
