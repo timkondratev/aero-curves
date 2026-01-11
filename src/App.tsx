@@ -1,4 +1,4 @@
-import { Graph } from "./Graph";
+import { Plot } from "./Plot";
 
 function App() {
   const width = window.innerWidth * 0.5;
@@ -6,7 +6,7 @@ function App() {
 
   return (
     <div>
-      <Graph width={width} height={height} />
+      <Plot width={width} height={height} />
     </div>
   );
 }

@@ -8,10 +8,10 @@ const Y_DOMAIN: [number, number] = [-1, 1];
 const MIN_POINTS = 2;
 
 // Types
-type GraphProps = { width: number; height: number };
+type PlotProps = { width: number; height: number };
 type Point = { x: number; y: number };
 
-export function Graph({ width, height }: GraphProps) {
+export function Plot({ width, height }: PlotProps) {
   // Dimensions
   const innerWidth = width - MARGIN.left - MARGIN.right;
   const innerHeight = height - MARGIN.top - MARGIN.bottom;
@@ -491,9 +491,9 @@ export function Graph({ width, height }: GraphProps) {
         </label>
       </div>
 
-      {/* SVG Graph */}
+      {/* SVG Plot */}
       <svg
-        className="graph"
+        className="plot"
         width={width}
         height={height}
         style={{ userSelect: "none", touchAction: "none" }}
