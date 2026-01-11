@@ -389,50 +389,58 @@ export function Plot({ width, height }: PlotProps) {
     setSelectedIndices(new Set()); // Deselect all points
   };
 
-  // Update duplicateRight to delete only points within the length of the duplicated part
+  // Rewrite duplicateRight to mirror slice-based approach (no resorting)
   const duplicateRight = () => {
-    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
-    if (selectedPoints.length === 0) return; // Prevent crash if no points are selected
+    const selected = Array.from(selectedIndices).sort((a, b) => a - b);
+    if (selected.length === 0) return;
 
-    const maxX = Math.max(...selectedPoints.map(p => p.x));
-    const minX = Math.min(...selectedPoints.map(p => p.x));
-    const duplicated = selectedPoints.map(p => ({ x: maxX + (p.x - minX), y: p.y }));
-    const duplicationLength = maxX - minX;
+    const firstIdx = selected[0];
+    const lastIdx = selected[selected.length - 1];
+    const spanCount = lastIdx - firstIdx; // slots we might overwrite on the right
 
-    setPoints(prev => {
-      const filtered = prev.filter(p => p.x <= maxX || p.x > maxX + duplicationLength); // Remove points only within the duplicated range
-            return [...filtered, ...duplicated].sort((a, b) => {
-        const dx = a.x - b.x;
-        if (dx !== 0) return dx;
+    const minX = Math.min(...selected.map(i => points[i].x));
+    const maxX = Math.max(...selected.map(i => points[i].x));
 
-        const dy = a.y - b.y;
-        return b.y >= 0 ? -dy : dy;
-      });
-    });
-    setSelectedIndices(new Set()); // Deselect all points
+    const duplicated = selected.map(i => ({
+      x: maxX + (points[i].x - minX),
+      y: points[i].y,
+    }));
+
+    // Keep only the part of the array strictly right of the duplicated span
+    const rightRemoveStart = lastIdx + 1;
+    const rightRemoveEnd = Math.min(points.length, lastIdx + 1 + spanCount);
+    const leftKeep = points.slice(0, rightRemoveStart);
+    const rightKeep = points.slice(rightRemoveEnd);
+
+    setPoints([...leftKeep, ...duplicated, ...rightKeep]);
+    setSelectedIndices(new Set());
   };
 
-  // Implement duplicateLeft based on the provided duplicateRight function
+  // Implement duplicateLeft using array slicing (avoid resorting/filtering)
   const duplicateLeft = () => {
-    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
-    if (selectedPoints.length === 0) return; // Prevent crash if no points are selected
+    const selected = Array.from(selectedIndices).sort((a, b) => a - b);
+    if (selected.length === 0) return;
 
-    const maxX = Math.max(...selectedPoints.map(p => p.x));
-    const minX = Math.min(...selectedPoints.map(p => p.x));
-    const duplicated = selectedPoints.map(p => ({ x: minX - (maxX - p.x), y: p.y }));
-    const duplicationLength = maxX - minX;
+    const firstIdx = selected[0];
+    const lastIdx = selected[selected.length - 1];
+    const spanCount = lastIdx - firstIdx; // number of slots to the left to potentially replace
 
-    setPoints(prev => {
-      const filtered = prev.filter(p => p.x >= minX || p.x < minX - duplicationLength); // Remove points only within the duplicated range
-      return [...duplicated, ...filtered].sort((a, b) => {
-        const dx = a.x - b.x;
-        if (dx !== 0) return dx;
+    const minX = Math.min(...selected.map(i => points[i].x));
+    const maxX = Math.max(...selected.map(i => points[i].x));
 
-        const dy = a.y - b.y;
-        return b.y >= 0 ? dy : -dy; // INFO: dy Flipped compared to duplicateRight implementation
-      });
-    });
-    setSelectedIndices(new Set()); // Deselect all points
+    // Build duplicated segment mirrored to the left of the selection
+    const duplicated = selected.map(i => ({
+      x: minX - (maxX - points[i].x),
+      y: points[i].y,
+    }));
+
+    // Keep only the part of the array strictly left of the duplicated span
+    const leftKeepStart = Math.max(0, firstIdx - spanCount);
+    const leftKeep = points.slice(0, leftKeepStart);
+    const rightKeep = points.slice(firstIdx);
+
+    setPoints([...leftKeep, ...duplicated, ...rightKeep]);
+    setSelectedIndices(new Set());
   };
 
   return (
