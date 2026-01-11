@@ -32,6 +32,7 @@ export function Graph({ width, height }: GraphProps) {
   const isDraggingPoints = useRef(false);
   const wasDragging = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
+  const wasPointClicked = useRef(false); // Track if a point was clicked
 
   // Scales
   const xScale = useMemo(() => scaleLinear().domain(X_DOMAIN).range([0, innerWidth]), [innerWidth]);
@@ -113,7 +114,16 @@ export function Graph({ width, height }: GraphProps) {
   // Pointer Handlers
   const handlePointPointerDown = (i: number, e: React.PointerEvent) => {
     e.stopPropagation();
-    handlePointClick(i, e);
+    wasPointClicked.current = true; // Mark that a point was clicked
+
+    if (isModifier(e)) {
+      // Allow toggling selection when a modifier key is pressed
+      handlePointClick(i, e);
+    } else if (!selectedIndices.has(i)) {
+      // Only modify selection if the point is not already part of the selection
+      handlePointClick(i, e);
+    }
+
     startPointDrag(i, e);
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -149,12 +159,13 @@ export function Graph({ width, height }: GraphProps) {
   };
 
   const handleBackgroundPointerUp = () => {
-    if (!wasDragging.current) {
-      setSelectedIndices(new Set());
+    if (!wasDragging.current && !wasPointClicked.current) {
+      setSelectedIndices(new Set()); // Deselect points only if no point was clicked
     }
     setBrush(null);
     dragStart.current = null;
     isDraggingPoints.current = false;
+    wasPointClicked.current = false; // Reset the flag
   };
 
   const handlePointClick = (i: number, e: React.PointerEvent) => {
@@ -167,7 +178,8 @@ export function Graph({ width, height }: GraphProps) {
         return next;
       });
     } else {
-      if (!selectedIndices.has(i)) setSelectedIndices(new Set([i]));
+      // Always select the clicked point, even if no points are currently selected
+      setSelectedIndices(new Set([i]));
     }
   };
 
