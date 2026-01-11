@@ -437,10 +437,8 @@ export function Graph({ width, height }: GraphProps) {
               onDoubleClick={e => {
                 e.stopPropagation();
                 setPoints(prev => {
-                  if (prev.length <= MIN_POINTS) return prev;
-                  const sorted = [...prev].sort((a, b) => a.x - b.x);
-                  if (i === 0 || i === sorted.length - 1) return prev;
-                  return sorted.filter((_, idx) => idx !== i);
+                  if (prev.length <= MIN_POINTS) return prev; // Ensure at least MIN_POINTS remain
+                  return prev.filter((_, idx) => idx !== i); // Remove the clicked point
                 });
                 setSelectedIndices(new Set());
               }}
