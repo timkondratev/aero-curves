@@ -299,6 +299,19 @@ export function Graph({ width, height }: GraphProps) {
     }
   };
 
+  // Calculate min-max lines for selected points
+  const minMaxLines = useMemo(() => {
+    if (selectedIndices.size === 0) return null;
+
+    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+    const minX = Math.min(...selectedPoints.map(p => p.x));
+    const maxX = Math.max(...selectedPoints.map(p => p.x));
+    const minY = Math.min(...selectedPoints.map(p => p.y));
+    const maxY = Math.max(...selectedPoints.map(p => p.y));
+
+    return { minX, maxX, minY, maxY };
+  }, [selectedIndices, points]);
+
   return (
     <div className="curve-editor" style={{ position: "relative", width, height: height + 120 }}> {/* Adjusted height for all panels */}
       {/* Inspector Panel */}
@@ -390,7 +403,7 @@ export function Graph({ width, height }: GraphProps) {
           ))}
 
           {/* Curve */}
-          <path d={pathD} fill="none" stroke="steelblue" strokeWidth={2} />
+          <path d={pathD} fill="none" stroke="black" strokeWidth={1.5} />
 
           {/* Brush */}
           {brush && (
@@ -409,8 +422,8 @@ export function Graph({ width, height }: GraphProps) {
               key={i}
               cx={xScale(p.x)}
               cy={yScale(p.y)}
-              r={6}
-              fill={selectedIndices.has(i) ? "orange" : "white"}
+              r={5}
+              fill={selectedIndices.has(i) ? "black" : "white"}
               stroke="black"
               style={{ cursor: "pointer" }}
               onPointerDown={e => handlePointPointerDown(i, e)}
@@ -433,6 +446,47 @@ export function Graph({ width, height }: GraphProps) {
               }}
             />
           ))}
+
+          {/* Min-Max Lines for Selected Points */}
+          {minMaxLines && (
+            <g>
+              {/* X-axis lines */}
+              <line
+                x1={xScale(minMaxLines.minX)}
+                x2={xScale(minMaxLines.minX)}
+                y1={0}
+                y2={innerHeight}
+                stroke="red"
+                strokeDasharray="4"
+              />
+              <line
+                x1={xScale(minMaxLines.maxX)}
+                x2={xScale(minMaxLines.maxX)}
+                y1={0}
+                y2={innerHeight}
+                stroke="red"
+                strokeDasharray="4"
+              />
+
+              {/* Y-axis lines */}
+              <line
+                x1={0}
+                x2={innerWidth}
+                y1={yScale(minMaxLines.minY)}
+                y2={yScale(minMaxLines.minY)}
+                stroke="blue"
+                strokeDasharray="4"
+              />
+              <line
+                x1={0}
+                x2={innerWidth}
+                y1={yScale(minMaxLines.maxY)}
+                y2={yScale(minMaxLines.maxY)}
+                stroke="blue"
+                strokeDasharray="4"
+              />
+            </g>
+          )}
         </g>
       </svg>
 
