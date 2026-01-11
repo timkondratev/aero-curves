@@ -345,6 +345,7 @@ export function Graph({ width, height }: GraphProps) {
       const filtered = prev.filter(p => !mirrored.some(m => Math.abs(m.x - p.x) < 1e-6));
       return [...filtered, ...mirrored].sort((a, b) => a.x - b.x);
     });
+    setSelectedIndices(new Set()); // Deselect all points
   };
 
   const mirrorLeft = () => {
@@ -355,6 +356,7 @@ export function Graph({ width, height }: GraphProps) {
       const filtered = prev.filter(p => !mirrored.some(m => Math.abs(m.x - p.x) < 1e-6));
       return [...filtered, ...mirrored].sort((a, b) => a.x - b.x);
     });
+    setSelectedIndices(new Set()); // Deselect all points
   };
 
   const flip = () => {
@@ -366,6 +368,7 @@ export function Graph({ width, height }: GraphProps) {
       });
       return updated;
     });
+    setSelectedIndices(new Set()); // Deselect all points
   };
 
   // Update duplicateRight to delete only points within the length of the duplicated part
@@ -388,6 +391,7 @@ export function Graph({ width, height }: GraphProps) {
         return b.y >= 0 ? -dy : dy;
       });
     });
+    setSelectedIndices(new Set()); // Deselect all points
   };
 
   // Implement duplicateLeft based on the provided duplicateRight function
@@ -410,6 +414,7 @@ export function Graph({ width, height }: GraphProps) {
         return b.y >= 0 ? dy : -dy; // INFO: dy Flipped compared to duplicateRight implementation
       });
     });
+    setSelectedIndices(new Set()); // Deselect all points
   };
 
   return (
