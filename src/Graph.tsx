@@ -53,6 +53,17 @@ export function Graph({ width, height }: GraphProps) {
     );
   }, [sortedPoints, xScale, yScale]);
 
+  // Calculate mean coordinates of selected points
+  const meanCoordinates = useMemo(() => {
+    if (selectedIndices.size === 0) return null;
+
+    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+    const meanX = selectedPoints.reduce((sum, p) => sum + p.x, 0) / selectedPoints.length;
+    const meanY = selectedPoints.reduce((sum, p) => sum + p.y, 0) / selectedPoints.length;
+
+    return { x: meanX, y: meanY };
+  }, [selectedIndices, points]);
+
   // Utility Functions
   const getSvgCoords = (e: React.PointerEvent | React.MouseEvent) => {
     //@ts-ignore
@@ -62,6 +73,19 @@ export function Graph({ width, height }: GraphProps) {
   };
 
   const isModifier = (e: React.PointerEvent) => e.shiftKey || e.ctrlKey || e.metaKey;
+
+  const updateCoordinates = (axis: "x" | "y", value: number) => {
+    setPoints(prev => {
+      const next = [...prev];
+      selectedIndices.forEach(i => {
+        next[i] = {
+          ...next[i],
+          [axis]: value,
+        };
+      });
+      return next;
+    });
+  };
 
   // Drag Handlers
   const startPointDrag = (index: number, e: React.PointerEvent) => {
@@ -151,7 +175,7 @@ export function Graph({ width, height }: GraphProps) {
       setBrush(prev => (prev ? { x0: prev.x0, x1: x } : null));
       wasDragging.current = true;
 
-      const [bx0, bx1] = [Math.min(brush.x0, x), Math.max(brush.x0, x)];
+      const [bx0, bx1] = [Math.min(brush.x0, brush.x1), Math.max(brush.x0, x)];
       setSelectedIndices(prev => {
         const newSelection = new Set(isModifier(e) ? prev : []);
         sortedPoints.forEach((p, i) => {
@@ -189,84 +213,119 @@ export function Graph({ width, height }: GraphProps) {
   };
 
   return (
-    <svg
-      className="graph"
-      width={width}
-      height={height}
-      style={{ userSelect: "none", touchAction: "none" }}
-      onDoubleClick={e => {
-        const { x, y } = getSvgCoords(e);
-        const domainX = xScale.invert(Math.max(0, Math.min(innerWidth, x)));
-        const domainY = yScale.invert(Math.max(0, Math.min(innerHeight, y)));
-        setPoints(prev => [...prev, { x: domainX, y: domainY }].sort((a, b) => a.x - b.x));
-        setSelectedIndices(new Set());
-      }}
-      onPointerDown={handleBackgroundPointerDown}
-      onPointerMove={handleBackgroundPointerMove}
-      onPointerUp={handleBackgroundPointerUp}
-    >
-      <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-        {/* Axes */}
-        <line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke="black" />
-        {xTicks.map(tick => (
-          <g key={tick} transform={`translate(${xScale(tick)}, ${innerHeight})`}>
-            <line y2={6} stroke="black" />
-            <text y={20} textAnchor="middle" fontSize={12}>{tick}</text>
-          </g>
-        ))}
-        <line x1={0} x2={0} y1={0} y2={innerHeight} stroke="black" />
-        {yTicks.map(tick => (
-          <g key={tick} transform={`translate(0, ${yScale(tick)})`}>
-            <line x2={-6} stroke="black" />
-            <text x={-10} dy="0.32em" textAnchor="end" fontSize={12}>{tick}</text>
-          </g>
-        ))}
-
-        {/* Curve */}
-        <path d={pathD} fill="none" stroke="steelblue" strokeWidth={2} />
-
-        {/* Brush */}
-        {brush && (
-          <rect
-            x={Math.min(brush.x0, brush.x1)}
-            y={0}
-            width={Math.abs(brush.x1 - brush.x0)}
-            height={innerHeight}
-            fill="rgba(0,120,215,0.2)"
+    <div className="curve-editor" style={{ position: "relative", width, height: height + 40 }}>
+      {/* Inspector Panel */}
+      <div
+        style={{
+          height: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "left",
+          backgroundColor: "#f0f0f0",
+          padding: "0 10px",
+        }}
+      >
+        <label>
+          X:
+          <input
+            type="number"
+            value={meanCoordinates?.x.toFixed(2) || ""}
+            onChange={e => meanCoordinates && updateCoordinates("x", parseFloat(e.target.value))}
+            style={{ marginLeft: 5, width: 80 }}
+            disabled={!meanCoordinates} // Disable input if no points are selected
           />
-        )}
-
-        {/* Control Points */}
-        {sortedPoints.map((p, i) => (
-          <circle
-            key={i}
-            cx={xScale(p.x)}
-            cy={yScale(p.y)}
-            r={6}
-            fill={selectedIndices.has(i) ? "orange" : "white"}
-            stroke="black"
-            style={{ cursor: "pointer" }}
-            onPointerDown={e => handlePointPointerDown(i, e)}
-            onPointerMove={e => {
-              if (isDraggingPoints.current) {
-                const { x, y } = getSvgCoords(e);
-                movePoints(x, y);
-              }
-            }}
-            onPointerUp={handlePointPointerUp}
-            onDoubleClick={e => {
-              e.stopPropagation();
-              setPoints(prev => {
-                if (prev.length <= MIN_POINTS) return prev;
-                const sorted = [...prev].sort((a, b) => a.x - b.x);
-                if (i === 0 || i === sorted.length - 1) return prev;
-                return sorted.filter((_, idx) => idx !== i);
-              });
-              setSelectedIndices(new Set());
-            }}
+        </label>
+        <label>
+          Y:
+          <input
+            type="number"
+            value={meanCoordinates?.y.toFixed(2) || ""}
+            onChange={e => meanCoordinates && updateCoordinates("y", parseFloat(e.target.value))}
+            style={{ marginLeft: 5, width: 80 }}
+            disabled={!meanCoordinates} // Disable input if no points are selected
           />
-        ))}
-      </g>
-    </svg>
+        </label>
+      </div>
+
+      {/* SVG Graph */}
+      <svg
+        width={width}
+        height={height}
+        style={{ userSelect: "none", touchAction: "none" }}
+        onDoubleClick={e => {
+          const { x, y } = getSvgCoords(e);
+          const domainX = xScale.invert(Math.max(0, Math.min(innerWidth, x)));
+          const domainY = yScale.invert(Math.max(0, Math.min(innerHeight, y)));
+          setPoints(prev => [...prev, { x: domainX, y: domainY }].sort((a, b) => a.x - b.x));
+          setSelectedIndices(new Set());
+        }}
+        onPointerDown={handleBackgroundPointerDown}
+        onPointerMove={handleBackgroundPointerMove}
+        onPointerUp={handleBackgroundPointerUp}
+      >
+        <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+          {/* Axes */}
+          <line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke="black" />
+          {xTicks.map(tick => (
+            <g key={tick} transform={`translate(${xScale(tick)}, ${innerHeight})`}>
+              <line y2={6} stroke="black" />
+              <text y={20} textAnchor="middle" fontSize={12}>{tick}</text>
+            </g>
+          ))}
+          <line x1={0} x2={0} y1={0} y2={innerHeight} stroke="black" />
+          {yTicks.map(tick => (
+            <g key={tick} transform={`translate(0, ${yScale(tick)})`}>
+              <line x2={-6} stroke="black" />
+              <text x={-10} dy="0.32em" textAnchor="end" fontSize={12}>{tick}</text>
+            </g>
+          ))}
+
+          {/* Curve */}
+          <path d={pathD} fill="none" stroke="steelblue" strokeWidth={2} />
+
+          {/* Brush */}
+          {brush && (
+            <rect
+              x={Math.min(brush.x0, brush.x1)}
+              y={0}
+              width={Math.abs(brush.x1 - brush.x0)}
+              height={innerHeight}
+              fill="rgba(0,120,215,0.2)"
+            />
+          )}
+
+          {/* Control Points */}
+          {sortedPoints.map((p, i) => (
+            <circle
+              key={i}
+              cx={xScale(p.x)}
+              cy={yScale(p.y)}
+              r={6}
+              fill={selectedIndices.has(i) ? "orange" : "white"}
+              stroke="black"
+              style={{ cursor: "pointer" }}
+              onPointerDown={e => handlePointPointerDown(i, e)}
+              onPointerMove={e => {
+                if (isDraggingPoints.current) {
+                  const { x, y } = getSvgCoords(e);
+                  movePoints(x, y);
+                }
+              }}
+              onPointerUp={handlePointPointerUp}
+              onDoubleClick={e => {
+                e.stopPropagation();
+                setPoints(prev => {
+                  if (prev.length <= MIN_POINTS) return prev;
+                  const sorted = [...prev].sort((a, b) => a.x - b.x);
+                  if (i === 0 || i === sorted.length - 1) return prev;
+                  return sorted.filter((_, idx) => idx !== i);
+                });
+                setSelectedIndices(new Set());
+              }}
+            />
+          ))}
+        </g>
+      </svg>
+    </div>
   );
 }
