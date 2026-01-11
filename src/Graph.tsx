@@ -224,7 +224,7 @@ export function Graph({ width, height }: GraphProps) {
       setBrush(prev => (prev ? { x0: prev.x0, x1: x } : null));
       wasDragging.current = true;
 
-      const [bx0, bx1] = [Math.min(brush.x0, brush.x1), Math.max(brush.x0, x)];
+      const [bx0, bx1] = [Math.min(brush.x0, brush.x1), Math.max(brush.x0, brush.x1)];
       setSelectedIndices(prev => {
         const newSelection = new Set(isModifier(e) ? prev : []);
         sortedPoints.forEach((p, i) => {
@@ -311,6 +311,72 @@ export function Graph({ width, height }: GraphProps) {
 
     return { minX, maxX, minY, maxY };
   }, [selectedIndices, points]);
+
+  // Handlers for selection manipulation
+  const trimRight = () => {
+    if (selectedIndices.size === 0) return; // Ensure there is a selection
+    const maxX = Math.max(...Array.from(selectedIndices).map(i => points[i]?.x ?? -Infinity));
+    setPoints(prev => prev.filter(p => p.x <= maxX));
+    setSelectedIndices(new Set()); // Deselect all points
+  };
+
+  // Update trimLeft to deselect selection after trimming
+  const trimLeft = () => {
+    if (selectedIndices.size === 0) return; // Ensure there is a selection
+    const minX = Math.min(...Array.from(selectedIndices).map(i => points[i]?.x ?? Infinity));
+    setPoints(prev => prev.filter(p => p.x >= minX));
+    setSelectedIndices(new Set()); // Deselect all points
+  };
+
+  const trim = () => {
+    if (selectedIndices.size < 2) return; // Ensure there are at least two points selected
+    const minX = Math.min(...Array.from(selectedIndices).map(i => points[i]?.x ?? Infinity));
+    const maxX = Math.max(...Array.from(selectedIndices).map(i => points[i]?.x ?? -Infinity));
+    setPoints(prev => prev.filter(p => p.x >= minX && p.x <= maxX));
+    setSelectedIndices(new Set()); // Deselect all points
+  };
+
+  // Update mirrorRight and mirrorLeft to keep mirrored points
+  const mirrorRight = () => {
+    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+    const maxX = Math.max(...selectedPoints.map(p => p.x));
+    const mirrored = selectedPoints.slice(0, -1).map(p => ({ x: maxX + (maxX - p.x), y: p.y }));
+    setPoints(prev => {
+      const filtered = prev.filter(p => !mirrored.some(m => Math.abs(m.x - p.x) < 1e-6));
+      return [...filtered, ...mirrored].sort((a, b) => a.x - b.x);
+    });
+  };
+
+  const mirrorLeft = () => {
+    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+    const minX = Math.min(...selectedPoints.map(p => p.x));
+    const mirrored = selectedPoints.slice(1).map(p => ({ x: minX - (p.x - minX), y: p.y }));
+    setPoints(prev => {
+      const filtered = prev.filter(p => !mirrored.some(m => Math.abs(m.x - p.x) < 1e-6));
+      return [...filtered, ...mirrored].sort((a, b) => a.x - b.x);
+    });
+  };
+
+  const flip = () => {
+    setPoints(prev => {
+      const flipped = Array.from(selectedIndices).map(i => ({ ...points[i], y: -points[i].y }));
+      const updated = [...prev];
+      flipped.forEach((p, i) => {
+        updated[Array.from(selectedIndices)[i]] = p;
+      });
+      return updated;
+    });
+  };
+
+  // TODO
+  const duplicateRight = () => {
+
+  };
+
+  // TODO
+  const duplicateLeft = () => {
+
+  };
 
   return (
     <div className="curve-editor" style={{ position: "relative", width, height: height + 120 }}> {/* Adjusted height for all panels */}
@@ -568,6 +634,18 @@ export function Graph({ width, height }: GraphProps) {
             />
           </label>
         </div>
+      </div>
+
+      {/* Selection Manipulation Panel */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
+        <button onClick={trimRight}>Trim Right</button>
+        <button onClick={trimLeft}>Trim Left</button>
+        <button onClick={trim}>Trim</button>
+        <button onClick={mirrorRight}>Mirror Right</button>
+        <button onClick={mirrorLeft}>Mirror Left</button>
+        <button onClick={flip}>Flip</button>
+        <button onClick={duplicateRight}>Duplicate Right</button>
+        <button onClick={duplicateLeft}>Duplicate Left</button>
       </div>
     </div>
   );
