@@ -491,6 +491,19 @@ export function Plot({ width, height }: PlotProps) {
         </label>
       </div>
 
+      {/* Selection Manipulation Panel */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
+        <button onClick={flipVertical}>Flip Vertical</button>
+        <button onClick={flipHorizontal}>Flip Horizontal</button>
+        <button onClick={trim}>Trim</button>
+        <button onClick={trimLeft}>Trim Left</button>
+        <button onClick={trimRight}>Trim Right</button>
+        <button onClick={mirrorLeft}>Mirror Left</button>
+        <button onClick={mirrorRight}>Mirror Right</button>
+        <button onClick={duplicateLeft}>Duplicate Left</button>
+        <button onClick={duplicateRight}>Duplicate Right</button>
+      </div>
+
       {/* SVG Plot */}
       <svg
         className="plot"
@@ -691,19 +704,6 @@ export function Plot({ width, height }: PlotProps) {
             />
           </label>
         </div>
-      </div>
-
-      {/* Selection Manipulation Panel */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
-        <button onClick={flipVertical}>Flip Vertical</button>
-        <button onClick={flipHorizontal}>Flip Horizontal</button>
-        <button onClick={trim}>Trim</button>
-        <button onClick={trimLeft}>Trim Left</button>
-        <button onClick={trimRight}>Trim Right</button>
-        <button onClick={mirrorLeft}>Mirror Left</button>
-        <button onClick={mirrorRight}>Mirror Right</button>
-        <button onClick={duplicateLeft}>Duplicate Left</button>
-        <button onClick={duplicateRight}>Duplicate Right</button>
       </div>
     </div>
   );
