@@ -125,8 +125,8 @@ export function Graph({ width, height }: GraphProps) {
           [axis]: axis === "x" && snapX
             ? snapValue(value, snapPrecisionX) // Apply snapping for X
             : axis === "y" && snapY
-            ? snapValue(value, snapPrecisionY) // Apply snapping for Y
-            : value,
+              ? snapValue(value, snapPrecisionY) // Apply snapping for Y
+              : value,
         };
       });
       return next;
@@ -368,14 +368,48 @@ export function Graph({ width, height }: GraphProps) {
     });
   };
 
-  // TODO
+  // Update duplicateRight to delete only points within the length of the duplicated part
   const duplicateRight = () => {
+    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+    if (selectedPoints.length === 0) return; // Prevent crash if no points are selected
 
+    const maxX = Math.max(...selectedPoints.map(p => p.x));
+    const minX = Math.min(...selectedPoints.map(p => p.x));
+    const duplicated = selectedPoints.map(p => ({ x: maxX + (p.x - minX), y: p.y }));
+    const duplicationLength = maxX - minX;
+
+    setPoints(prev => {
+      const filtered = prev.filter(p => p.x <= maxX || p.x > maxX + duplicationLength); // Remove points only within the duplicated range
+            return [...filtered, ...duplicated].sort((a, b) => {
+        const dx = a.x - b.x;
+        if (dx !== 0) return dx;
+
+        const dy = a.y - b.y;
+        return b.y >= 0 ? -dy : dy;
+      });
+    });
   };
 
-  // TODO
+  // Implement duplicateLeft based on the provided duplicateRight function
   const duplicateLeft = () => {
+    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+    if (selectedPoints.length === 0) return; // Prevent crash if no points are selected
 
+    const maxX = Math.max(...selectedPoints.map(p => p.x));
+    const minX = Math.min(...selectedPoints.map(p => p.x));
+    const duplicated = selectedPoints.map(p => ({ x: minX - (maxX - p.x), y: p.y }));
+    const duplicationLength = maxX - minX;
+
+    setPoints(prev => {
+      const filtered = prev.filter(p => p.x >= minX || p.x < minX - duplicationLength); // Remove points only within the duplicated range
+      return [...duplicated, ...filtered].sort((a, b) => {
+        const dx = a.x - b.x;
+        if (dx !== 0) return dx;
+
+        const dy = a.y - b.y;
+        return b.y >= 0 ? dy : -dy; // INFO: dy Flipped compared to duplicateRight implementation
+      });
+    });
   };
 
   return (
@@ -638,14 +672,14 @@ export function Graph({ width, height }: GraphProps) {
 
       {/* Selection Manipulation Panel */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
-        <button onClick={trimRight}>Trim Right</button>
-        <button onClick={trimLeft}>Trim Left</button>
-        <button onClick={trim}>Trim</button>
-        <button onClick={mirrorRight}>Mirror Right</button>
-        <button onClick={mirrorLeft}>Mirror Left</button>
         <button onClick={flip}>Flip</button>
-        <button onClick={duplicateRight}>Duplicate Right</button>
+        <button onClick={trim}>Trim</button>
+        <button onClick={trimLeft}>Trim Left</button>
+        <button onClick={trimRight}>Trim Right</button>
+        <button onClick={mirrorLeft}>Mirror Left</button>
+        <button onClick={mirrorRight}>Mirror Right</button>
         <button onClick={duplicateLeft}>Duplicate Left</button>
+        <button onClick={duplicateRight}>Duplicate Right</button>
       </div>
     </div>
   );
