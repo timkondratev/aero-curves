@@ -34,13 +34,24 @@ export function Graph({ width, height }: GraphProps) {
   const animationFrameRef = useRef<number | null>(null);
   const wasPointClicked = useRef(false); // Track if a point was clicked
 
+  // State for axes domain control
+  const [xDomain, setXDomain] = useState<[number, number]>(X_DOMAIN);
+  const [yDomain, setYDomain] = useState<[number, number]>(Y_DOMAIN);
+
   // Scales
-  const xScale = useMemo(() => scaleLinear().domain(X_DOMAIN).range([0, innerWidth]), [innerWidth]);
-  const yScale = useMemo(() => scaleLinear().domain(Y_DOMAIN).range([innerHeight, 0]), [innerHeight]);
+  const xScale = useMemo(() => scaleLinear().domain(xDomain).range([0, innerWidth]), [innerWidth, xDomain]);
+  const yScale = useMemo(() => scaleLinear().domain(yDomain).range([innerHeight, 0]), [innerHeight, yDomain]);
 
   // Ticks
-  const xTicks = xScale.ticks(9);
-  const yTicks = yScale.ticks(5);
+  const xTicks = useMemo(() => {
+    const [min, max] = xDomain;
+    return scaleLinear().domain([min, max]).ticks(10); // Generate 10 "nice" ticks
+  }, [xDomain]);
+
+  const yTicks = useMemo(() => {
+    const [min, max] = yDomain;
+    return scaleLinear().domain([min, max]).ticks(10); // Generate 10 "nice" ticks
+  }, [yDomain]);
 
   // Derived Data
   const sortedPoints = useMemo(() => [...points].sort((a, b) => a.x - b.x), [points]);
@@ -78,6 +89,10 @@ export function Graph({ width, height }: GraphProps) {
   const [inputX, setInputX] = useState<string>("");
   const [inputY, setInputY] = useState<string>("");
 
+  // Local state for axis domain inputs
+  const [inputXDomain, setInputXDomain] = useState<[string, string]>([xDomain[0].toString(), xDomain[1].toString()]);
+  const [inputYDomain, setInputYDomain] = useState<[string, string]>([yDomain[0].toString(), yDomain[1].toString()]);
+
   useEffect(() => {
     if (meanCoordinates) {
       setInputX(meanCoordinates.x.toFixed(2));
@@ -86,7 +101,10 @@ export function Graph({ width, height }: GraphProps) {
       setInputX("");
       setInputY("");
     }
-  }, [meanCoordinates]);
+
+    setInputXDomain([xDomain[0].toString(), xDomain[1].toString()]);
+    setInputYDomain([yDomain[0].toString(), yDomain[1].toString()]);
+  }, [meanCoordinates, xDomain, yDomain]);
 
   // Utility Functions
   const getSvgCoords = (e: React.PointerEvent | React.MouseEvent) => {
@@ -250,8 +268,39 @@ export function Graph({ width, height }: GraphProps) {
     }
   };
 
+  const handleDomainInputBlur = (axis: "x" | "y", minOrMax: "min" | "max") => {
+    const value = axis === "x"
+      ? parseFloat(minOrMax === "min" ? inputXDomain[0] : inputXDomain[1])
+      : parseFloat(minOrMax === "min" ? inputYDomain[0] : inputYDomain[1]);
+
+    if (!isNaN(value)) {
+      updateDomain(axis, minOrMax, value);
+    } else {
+      // Reset input to current domain value if invalid
+      if (axis === "x") {
+        setInputXDomain([xDomain[0].toString(), xDomain[1].toString()]);
+      } else {
+        setInputYDomain([yDomain[0].toString(), yDomain[1].toString()]);
+      }
+    }
+  };
+
+  const updateDomain = (axis: "x" | "y", minOrMax: "min" | "max", value: number) => {
+    if (axis === "x") {
+      setXDomain(prev => {
+        const newDomain: [number, number] = minOrMax === "min" ? [value, prev[1]] : [prev[0], value];
+        return newDomain[0] < newDomain[1] ? newDomain : prev; // Ensure min < max
+      });
+    } else {
+      setYDomain(prev => {
+        const newDomain: [number, number] = minOrMax === "min" ? [value, prev[1]] : [prev[0], value];
+        return newDomain[0] < newDomain[1] ? newDomain : prev; // Ensure min < max
+      });
+    }
+  };
+
   return (
-    <div className="curve-editor" style={{ position: "relative", width, height: height + 80 }}> {/* Adjusted height for both panels */}
+    <div className="curve-editor" style={{ position: "relative", width, height: height + 120 }}> {/* Adjusted height for all panels */}
       {/* Inspector Panel */}
       <div
         style={{
@@ -387,42 +436,86 @@ export function Graph({ width, height }: GraphProps) {
         </g>
       </svg>
 
-      {/* Snapping Precision Panel */}
+      {/* Snapping Precision and Axes Domain Control Panel */}
       <div
         style={{
-          height: 40,
+          height: 80,
           display: "flex",
-          alignItems: "center",
+          flexDirection: "column",
           justifyContent: "space-between",
           backgroundColor: "#f0f0f0",
-          padding: "0 10px",
+          padding: "10px",
           borderTop: "1px solid #ccc",
         }}
       >
-        <label>
-          Snap Precision X:
-          <select
-            value={snapPrecisionX}
-            onChange={e => setSnapPrecisionX(parseFloat(e.target.value))}
-            style={{ marginLeft: 5 }}
-          >
-            <option value={1.0}>1.0</option>
-            <option value={0.1}>0.1</option>
-            <option value={0.01}>0.01</option>
-          </select>
-        </label>
-        <label>
-          Snap Precision Y:
-          <select
-            value={snapPrecisionY}
-            onChange={e => setSnapPrecisionY(parseFloat(e.target.value))}
-            style={{ marginLeft: 5 }}
-          >
-            <option value={1.0}>1.0</option>
-            <option value={0.1}>0.1</option>
-            <option value={0.01}>0.01</option>
-          </select>
-        </label>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <label>
+            Snap Precision X:
+            <select
+              value={snapPrecisionX}
+              onChange={e => setSnapPrecisionX(parseFloat(e.target.value))}
+              style={{ marginLeft: 5 }}
+            >
+              <option value={1.0}>1.0</option>
+              <option value={0.1}>0.1</option>
+              <option value={0.01}>0.01</option>
+            </select>
+          </label>
+          <label>
+            Snap Precision Y:
+            <select
+              value={snapPrecisionY}
+              onChange={e => setSnapPrecisionY(parseFloat(e.target.value))}
+              style={{ marginLeft: 5 }}
+            >
+              <option value={1.0}>1.0</option>
+              <option value={0.1}>0.1</option>
+              <option value={0.01}>0.01</option>
+            </select>
+          </label>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <label>
+            X Min:
+            <input
+              type="text"
+              value={inputXDomain[0]}
+              onChange={e => setInputXDomain([e.target.value, inputXDomain[1]])}
+              onBlur={() => handleDomainInputBlur("x", "min")}
+              style={{ marginLeft: 5, width: 80 }}
+            />
+          </label>
+          <label>
+            X Max:
+            <input
+              type="text"
+              value={inputXDomain[1]}
+              onChange={e => setInputXDomain([inputXDomain[0], e.target.value])}
+              onBlur={() => handleDomainInputBlur("x", "max")}
+              style={{ marginLeft: 5, width: 80 }}
+            />
+          </label>
+          <label>
+            Y Min:
+            <input
+              type="text"
+              value={inputYDomain[0]}
+              onChange={e => setInputYDomain([e.target.value, inputYDomain[1]])}
+              onBlur={() => handleDomainInputBlur("y", "min")}
+              style={{ marginLeft: 5, width: 80 }}
+            />
+          </label>
+          <label>
+            Y Max:
+            <input
+              type="text"
+              value={inputYDomain[1]}
+              onChange={e => setInputYDomain([inputYDomain[0], e.target.value])}
+              onBlur={() => handleDomainInputBlur("y", "max")}
+              style={{ marginLeft: 5, width: 80 }}
+            />
+          </label>
+        </div>
       </div>
     </div>
   );
