@@ -359,9 +359,27 @@ export function Graph({ width, height }: GraphProps) {
     setSelectedIndices(new Set()); // Deselect all points
   };
 
-  const flip = () => {
+  const flipVertical = () => {
     setPoints(prev => {
       const flipped = Array.from(selectedIndices).map(i => ({ ...points[i], y: -points[i].y }));
+      const updated = [...prev];
+      flipped.forEach((p, i) => {
+        updated[Array.from(selectedIndices)[i]] = p;
+      });
+      return updated;
+    });
+    setSelectedIndices(new Set()); // Deselect all points
+  };
+
+  const flipHorizontal = () => {
+    setPoints(prev => {
+      const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+      if (selectedPoints.length === 0) return prev; // Prevent crash if no points are selected
+
+      const minX = Math.min(...selectedPoints.map(p => p.x));
+      const maxX = Math.max(...selectedPoints.map(p => p.x));
+      const flipped = selectedPoints.map(p => ({ ...p, x: maxX - (p.x - minX) }));
+
       const updated = [...prev];
       flipped.forEach((p, i) => {
         updated[Array.from(selectedIndices)[i]] = p;
@@ -677,7 +695,8 @@ export function Graph({ width, height }: GraphProps) {
 
       {/* Selection Manipulation Panel */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
-        <button onClick={flip}>Flip</button>
+        <button onClick={flipVertical}>Flip Vertical</button>
+        <button onClick={flipHorizontal}>Flip Horizontal</button>
         <button onClick={trim}>Trim</button>
         <button onClick={trimLeft}>Trim Left</button>
         <button onClick={trimRight}>Trim Right</button>
