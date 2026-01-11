@@ -134,6 +134,18 @@ export function Graph({ width, height }: GraphProps) {
     }
   };
 
+  const handlePointPointerDown = (i: number, e: React.PointerEvent) => {
+    e.stopPropagation();
+    handlePointClick(i, e);
+    startPointDrag(i, e);
+    e.currentTarget.setPointerCapture(e.pointerId); // Capture pointer events
+  };
+
+  const handlePointPointerUp = (e: React.PointerEvent) => {
+    e.currentTarget.releasePointerCapture(e.pointerId); // Release pointer events
+    isDraggingPoints.current = false;
+  };
+
   return (
     <svg
       className="graph"
@@ -192,17 +204,14 @@ export function Graph({ width, height }: GraphProps) {
             fill={selectedIndices.has(i) ? 'orange' : 'white'}
             stroke="black"
             style={{ cursor: 'pointer' }}
-            onPointerDown={e => {
-              e.stopPropagation();
-              handlePointClick(i, e);
-              startPointDrag(i, e);
-            }}
+            onPointerDown={e => handlePointPointerDown(i, e)}
             onPointerMove={e => {
               if (isDraggingPoints.current) {
                 const { x, y } = getSvgCoords(e);
                 movePoints(x, y);
               }
             }}
+            onPointerUp={handlePointPointerUp}
             onDoubleClick={e => {
               e.stopPropagation();
               setPoints(prev => {
