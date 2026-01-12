@@ -1,5 +1,7 @@
 import { scaleLinear, line, curveMonotoneX } from "d3";
-import { useMemo, useState, useRef, useEffect, useLayoutEffect } from "react";
+import { forwardRef, useMemo, useState, useRef, useEffect, useLayoutEffect, useImperativeHandle } from "react";
+import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 // Constants
 const MARGIN = { top: 20, right: 20, bottom: 40, left: 50 };
@@ -9,15 +11,54 @@ const Y_DOMAIN: [number, number] = [-1, 1];
 const MIN_POINTS = 2;
 
 // Types
-type PlotProps = { width: number; height: number };
+export type PlotHandle = {
+  flipVertical: () => void;
+  flipHorizontal: () => void;
+  trim: () => void;
+  trimLeft: () => void;
+  trimRight: () => void;
+  mirrorLeft: () => void;
+  mirrorRight: () => void;
+  duplicateLeft: () => void;
+  duplicateRight: () => void;
+  renderSidePanel: () => ReactNode;
+};
+
+type PlotProps = {
+  width: number;
+  height: number;
+  active: boolean;
+  onActivate: () => void;
+  showTopPanel?: boolean;
+  showSidePanel?: boolean;
+  renderSidePanelInline?: boolean;
+  sidePanelContainer?: HTMLElement | null;
+};
 type Point = { x: number; y: number };
 
-export function Plot({ width, height }: PlotProps) {
+export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
+  {
+    width,
+    height,
+    active,
+    onActivate,
+    showTopPanel = true,
+    showSidePanel = true,
+    renderSidePanelInline = true,
+    sidePanelContainer,
+  }: PlotProps,
+  ref
+) {
   // Dimensions (plot flexes; side panel sizes to content with a clamp)
   const sidePanelRef = useRef<HTMLDivElement | null>(null);
   const [sidePanelWidth, setSidePanelWidth] = useState(0);
 
   useLayoutEffect(() => {
+    if (!active || !showSidePanel) {
+      setSidePanelWidth(0);
+      return;
+    }
+
     const node = sidePanelRef.current;
     if (!node) return;
 
@@ -31,11 +72,13 @@ export function Plot({ width, height }: PlotProps) {
     observer.observe(node);
 
     return () => observer.disconnect();
-  }, []);
+  }, [active, showSidePanel]);
 
   const sidePanelMaxWidth = Math.min(400, Math.max(260, width * 0.35));
   const safeWidth = Math.max(240, Math.min(width, window.innerWidth || width));
-  const plotWidth = Math.max(200, safeWidth - sidePanelWidth - GRID_GAP);
+  const sidePanelCountsForWidth = renderSidePanelInline && showSidePanel && active;
+  const effectiveSideWidth = sidePanelCountsForWidth ? sidePanelWidth : 0;
+  const plotWidth = Math.max(200, safeWidth - effectiveSideWidth - GRID_GAP);
   const innerWidth = plotWidth - MARGIN.left - MARGIN.right;
   const innerHeight = height - MARGIN.top - MARGIN.bottom;
 
@@ -497,44 +540,208 @@ export function Plot({ width, height }: PlotProps) {
     setSelectedIndices(new Set());
   };
 
+  const renderSidePanel = () => (
+    <div
+      ref={sidePanelRef}
+      style={{
+        flex: "0 1 auto",
+        width: "max-content",
+        maxWidth: sidePanelMaxWidth,
+        padding: "12px",
+        backgroundColor: "#fff",
+        border: "1px solid #ccc",
+        borderRadius: 6,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        boxSizing: "border-box",
+        overflow: "auto",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label>
+          Plot Name:
+          <input
+            type="text"
+            value={plotName}
+            onChange={e => setPlotName(e.target.value)}
+            style={{ marginLeft: 5, width: 180 }}
+          />
+        </label>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <label>
+          X:
+          <input
+            type="text"
+            value={inputX}
+            onChange={e => setInputX(e.target.value)}
+            onBlur={() => handleInputBlur("x")}
+            style={{ marginLeft: 5, width: 120 }}
+            disabled={!meanCoordinates}
+          />
+        </label>
+        <label>
+          Y:
+          <input
+            type="text"
+            value={inputY}
+            onChange={e => setInputY(e.target.value)}
+            onBlur={() => handleInputBlur("y")}
+            style={{ marginLeft: 5, width: 120 }}
+            disabled={!meanCoordinates}
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={snapX}
+            onChange={e => setSnapX(e.target.checked)}
+            style={{ marginRight: 6 }}
+          />
+          Snap X
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={snapY}
+            onChange={e => setSnapY(e.target.checked)}
+            style={{ marginRight: 6 }}
+          />
+          Snap Y
+        </label>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <label>
+          Snap Precision X:
+          <select
+            value={snapPrecisionX}
+            onChange={e => setSnapPrecisionX(parseFloat(e.target.value))}
+            style={{ marginLeft: 5 }}
+          >
+            <option value={1.0}>1.0</option>
+            <option value={0.1}>0.1</option>
+            <option value={0.01}>0.01</option>
+          </select>
+        </label>
+        <label>
+          Snap Precision Y:
+          <select
+            value={snapPrecisionY}
+            onChange={e => setSnapPrecisionY(parseFloat(e.target.value))}
+            style={{ marginLeft: 5 }}
+          >
+            <option value={1.0}>1.0</option>
+            <option value={0.1}>0.1</option>
+            <option value={0.01}>0.01</option>
+          </select>
+        </label>
+        <label>
+          X Min:
+          <input
+            type="text"
+            value={inputXDomain[0]}
+            onChange={e => setInputXDomain([e.target.value, inputXDomain[1]])}
+            onBlur={() => handleDomainInputBlur("x", "min")}
+            style={{ marginLeft: 5, width: 120 }}
+          />
+        </label>
+        <label>
+          X Max:
+          <input
+            type="text"
+            value={inputXDomain[1]}
+            onChange={e => setInputXDomain([inputXDomain[0], e.target.value])}
+            onBlur={() => handleDomainInputBlur("x", "max")}
+            style={{ marginLeft: 5, width: 120 }}
+          />
+        </label>
+        <label>
+          Y Min:
+          <input
+            type="text"
+            value={inputYDomain[0]}
+            onChange={e => setInputYDomain([e.target.value, inputYDomain[1]])}
+            onBlur={() => handleDomainInputBlur("y", "min")}
+            style={{ marginLeft: 5, width: 120 }}
+          />
+        </label>
+        <label>
+          Y Max:
+          <input
+            type="text"
+            value={inputYDomain[1]}
+            onChange={e => setInputYDomain([inputYDomain[0], e.target.value])}
+            onBlur={() => handleDomainInputBlur("y", "max")}
+            style={{ marginLeft: 5, width: 120 }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flipVertical,
+      flipHorizontal,
+      trim,
+      trimLeft,
+      trimRight,
+      mirrorLeft,
+      mirrorRight,
+      duplicateLeft,
+      duplicateRight,
+      renderSidePanel,
+    }),
+    [flipVertical, flipHorizontal, trim, trimLeft, trimRight, mirrorLeft, mirrorRight, duplicateLeft, duplicateRight, renderSidePanel]
+  );
+
   return (
     <div
       className="curve-editor"
+      onPointerDownCapture={onActivate}
       style={{
         display: "flex",
         width: "100%",
         maxWidth: width,
-        height: height + 120,
+        height,
+        minHeight: height,
         columnGap: GRID_GAP,
         alignItems: "flex-start",
         overflow: "hidden",
+        cursor: active ? "default" : "pointer",
+        flex: "0 0 auto",
+        flexShrink: 0,
       }}
     >
       <div style={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", gap: GRID_GAP }}>
-        {/* Selection Manipulation Panel */}
-        <div
-          style={{
-            width: plotWidth,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            padding: "10px",
-            backgroundColor: "#fff",
-            border: "1px solid #ccc",
-            borderRadius: 6,
-            boxSizing: "border-box",
-          }}
-        >
-          <button onClick={flipVertical}>Flip Vertical</button>
-          <button onClick={flipHorizontal}>Flip Horizontal</button>
-          <button onClick={trim}>Trim</button>
-          <button onClick={trimLeft}>Trim Left</button>
-          <button onClick={trimRight}>Trim Right</button>
-          <button onClick={mirrorLeft}>Mirror Left</button>
-          <button onClick={mirrorRight}>Mirror Right</button>
-          <button onClick={duplicateLeft}>Duplicate Left</button>
-          <button onClick={duplicateRight}>Duplicate Right</button>
-        </div>
+        {/* Selection Manipulation Panel (can be hidden when managed externally) */}
+        {showTopPanel && (
+          <div
+            style={{
+              width: plotWidth,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "10px",
+              padding: "10px",
+              backgroundColor: "#fff",
+              border: "1px solid #ccc",
+              borderRadius: 6,
+              boxSizing: "border-box",
+            }}
+          >
+            <button onClick={flipVertical}>Flip Vertical</button>
+            <button onClick={flipHorizontal}>Flip Horizontal</button>
+            <button onClick={trim}>Trim</button>
+            <button onClick={trimLeft}>Trim Left</button>
+            <button onClick={trimRight}>Trim Right</button>
+            <button onClick={mirrorLeft}>Mirror Left</button>
+            <button onClick={mirrorRight}>Mirror Right</button>
+            <button onClick={duplicateLeft}>Duplicate Left</button>
+            <button onClick={duplicateRight}>Duplicate Right</button>
+          </div>
+        )}
 
         {/* SVG Plot with title overlay */}
         <div
@@ -542,7 +749,7 @@ export function Plot({ width, height }: PlotProps) {
             position: "relative",
             width: plotWidth,
             height,
-            border: "1px solid #ccc",
+            border: `2px solid ${active ? "#1976d2" : "#ccc"}`,
             borderRadius: 6,
             overflow: "hidden",
             backgroundColor: "#fff",
@@ -684,144 +891,11 @@ export function Plot({ width, height }: PlotProps) {
         </div>
       </div>
 
-      {/* Side Panel (sizes to content) */}
-      <div
-        ref={sidePanelRef}
-        style={{
-          flex: "0 1 auto",
-          width: "max-content",
-          maxWidth: sidePanelMaxWidth,
-          padding: "12px",
-          backgroundColor: "#fff",
-          border: "1px solid #ccc",
-          borderRadius: 6,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          boxSizing: "border-box",
-          overflow: "auto",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <label>
-            Plot Name:
-            <input
-              type="text"
-              value={plotName}
-              onChange={e => setPlotName(e.target.value)}
-              style={{ marginLeft: 5, width: 180 }}
-            />
-          </label>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label>
-            X:
-            <input
-              type="text"
-              value={inputX}
-              onChange={e => setInputX(e.target.value)}
-              onBlur={() => handleInputBlur("x")}
-              style={{ marginLeft: 5, width: 120 }}
-              disabled={!meanCoordinates}
-            />
-          </label>
-          <label>
-            Y:
-            <input
-              type="text"
-              value={inputY}
-              onChange={e => setInputY(e.target.value)}
-              onBlur={() => handleInputBlur("y")}
-              style={{ marginLeft: 5, width: 120 }}
-              disabled={!meanCoordinates}
-            />
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={snapX}
-              onChange={e => setSnapX(e.target.checked)}
-              style={{ marginRight: 6 }}
-            />
-            Snap X
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={snapY}
-              onChange={e => setSnapY(e.target.checked)}
-              style={{ marginRight: 6 }}
-            />
-            Snap Y
-          </label>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label>
-            Snap Precision X:
-            <select
-              value={snapPrecisionX}
-              onChange={e => setSnapPrecisionX(parseFloat(e.target.value))}
-              style={{ marginLeft: 5 }}
-            >
-              <option value={1.0}>1.0</option>
-              <option value={0.1}>0.1</option>
-              <option value={0.01}>0.01</option>
-            </select>
-          </label>
-          <label>
-            Snap Precision Y:
-            <select
-              value={snapPrecisionY}
-              onChange={e => setSnapPrecisionY(parseFloat(e.target.value))}
-              style={{ marginLeft: 5 }}
-            >
-              <option value={1.0}>1.0</option>
-              <option value={0.1}>0.1</option>
-              <option value={0.01}>0.01</option>
-            </select>
-          </label>
-          <label>
-            X Min:
-            <input
-              type="text"
-              value={inputXDomain[0]}
-              onChange={e => setInputXDomain([e.target.value, inputXDomain[1]])}
-              onBlur={() => handleDomainInputBlur("x", "min")}
-              style={{ marginLeft: 5, width: 120 }}
-            />
-          </label>
-          <label>
-            X Max:
-            <input
-              type="text"
-              value={inputXDomain[1]}
-              onChange={e => setInputXDomain([inputXDomain[0], e.target.value])}
-              onBlur={() => handleDomainInputBlur("x", "max")}
-              style={{ marginLeft: 5, width: 120 }}
-            />
-          </label>
-          <label>
-            Y Min:
-            <input
-              type="text"
-              value={inputYDomain[0]}
-              onChange={e => setInputYDomain([e.target.value, inputYDomain[1]])}
-              onBlur={() => handleDomainInputBlur("y", "min")}
-              style={{ marginLeft: 5, width: 120 }}
-            />
-          </label>
-          <label>
-            Y Max:
-            <input
-              type="text"
-              value={inputYDomain[1]}
-              onChange={e => setInputYDomain([inputYDomain[0], e.target.value])}
-              onBlur={() => handleDomainInputBlur("y", "max")}
-              style={{ marginLeft: 5, width: 120 }}
-            />
-          </label>
-        </div>
-      </div>
+      {/* Side Panel (render inline only when requested) */}
+      {renderSidePanelInline && showSidePanel && active && renderSidePanel()}
+      {!renderSidePanelInline && showSidePanel && active && sidePanelContainer
+        ? createPortal(renderSidePanel(), sidePanelContainer)
+        : null}
     </div>
   );
-}
+});
