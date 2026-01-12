@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 // Constants
 const MARGIN = { top: 20, right: 20, bottom: 40, left: 50 };
+const HEADER_HEIGHT = 36;
 const GRID_GAP = 12;
 const X_DOMAIN: [number, number] = [-180, 180];
 const Y_DOMAIN: [number, number] = [-1, 1];
@@ -33,6 +34,7 @@ type PlotProps = {
   showSidePanel?: boolean;
   renderSidePanelInline?: boolean;
   sidePanelContainer?: HTMLElement | null;
+  onRemove?: () => void;
 };
 type Point = { x: number; y: number };
 
@@ -46,6 +48,7 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
     showSidePanel = true,
     renderSidePanelInline = true,
     sidePanelContainer,
+    onRemove,
   }: PlotProps,
   ref
 ) {
@@ -79,8 +82,9 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
   const sidePanelCountsForWidth = renderSidePanelInline && showSidePanel && active;
   const effectiveSideWidth = sidePanelCountsForWidth ? sidePanelWidth : 0;
   const plotWidth = Math.max(200, safeWidth - effectiveSideWidth - GRID_GAP);
+  const chartHeight = Math.max(120, height - HEADER_HEIGHT);
   const innerWidth = plotWidth - MARGIN.left - MARGIN.right;
-  const innerHeight = height - MARGIN.top - MARGIN.bottom;
+  const innerHeight = chartHeight - MARGIN.top - MARGIN.bottom;
 
   // State
   const [points, setPoints] = useState<Point[]>(() =>
@@ -780,26 +784,51 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
             overflow: "hidden",
             backgroundColor: "#fff",
             boxSizing: "border-box",
+            paddingTop: HEADER_HEIGHT,
           }}
         >
           <div
             style={{
               position: "absolute",
-              top: 8,
-              left: 8,
-              fontWeight: "bold",
-              backgroundColor: "rgba(255,255,255,0.85)",
-              padding: "2px 6px",
-              borderRadius: 4,
-              pointerEvents: "none",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: HEADER_HEIGHT,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "8px 10px",
+              boxSizing: "border-box",
+              backgroundColor: "rgba(255,255,255,0.92)",
             }}
           >
-            {plotName}
+            <div style={{ fontWeight: "bold" }}>{plotName}</div>
+            {onRemove && (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  onRemove();
+                }}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 4,
+                  border: "1px solid #ccc",
+                  background: "#f7f7f7",
+                  cursor: "pointer",
+                  lineHeight: "24px",
+                  fontWeight: 700,
+                }}
+                aria-label="Remove plot"
+              >
+                X
+              </button>
+            )}
           </div>
           <svg
             className="plot"
             width={plotWidth}
-            height={height}
+            height={chartHeight}
             style={{ userSelect: "none", touchAction: "none", display: "block" }}
             onDoubleClick={e => {
               const { x, y } = getSvgCoords(e);

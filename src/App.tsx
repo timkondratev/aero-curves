@@ -16,12 +16,13 @@ const getDims = (): ViewDims => {
 
 function App() {
   const [dims, setDims] = useState<ViewDims>(getDims());
-  const [activePlot, setActivePlot] = useState<"A" | "B" | "C">("A");
+  const [plots, setPlots] = useState<string[]>(["plot-1"]);
+  const [activePlot, setActivePlot] = useState<string>("plot-1");
   const [sideWidth, setSideWidth] = useState(300);
 
-  const plotARef = useRef<PlotHandle>(null);
-  const plotBRef = useRef<PlotHandle>(null);
-  const plotCRef = useRef<PlotHandle>(null);
+  const plotRefs = useRef(new Map<string, PlotHandle>());
+  const nextId = useRef(2);
+
   const sidePanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -45,15 +46,28 @@ function App() {
   const plotHeight = useMemo(() => Math.max(300, Math.floor(dims.height / 2)), [dims.height]);
   const plotWidth = useMemo(() => Math.max(320, dims.width - sideWidth - GRID_GAP - 24), [dims.width, sideWidth]);
 
-  const getActiveHandle = () => {
-    if (activePlot === "A") return plotARef.current;
-    if (activePlot === "B") return plotBRef.current;
-    return plotCRef.current;
-  };
+  const getActiveHandle = () => plotRefs.current.get(activePlot) ?? null;
 
   const call = (fn: (h: PlotHandle) => void) => {
     const handle = getActiveHandle();
     if (handle) fn(handle);
+  };
+
+  const addPlot = () => {
+    const id = `plot-${nextId.current++}`;
+    setPlots(prev => [...prev, id]);
+    setActivePlot(id);
+  };
+
+  const removePlot = (id: string) => {
+    setPlots(prev => {
+      if (prev.length <= 1) return prev; // keep at least one plot
+      const next = prev.filter(p => p !== id);
+      if (activePlot === id && next.length > 0) {
+        setActivePlot(next[0]);
+      }
+      return next;
+    });
   };
 
   return (
@@ -123,39 +137,37 @@ function App() {
             width: "100%",
           }}
         >
-          <Plot
-            ref={plotARef}
-            width={plotWidth}
-            height={plotHeight}
-            active={activePlot === "A"}
-            onActivate={() => setActivePlot("A")}
-            showTopPanel={false}
-            showSidePanel
-            renderSidePanelInline={false}
-            sidePanelContainer={sidePanelRef.current}
-          />
-          <Plot
-            ref={plotBRef}
-            width={plotWidth}
-            height={plotHeight}
-            active={activePlot === "B"}
-            onActivate={() => setActivePlot("B")}
-            showTopPanel={false}
-            showSidePanel
-            renderSidePanelInline={false}
-            sidePanelContainer={sidePanelRef.current}
-          />
-          <Plot
-            ref={plotCRef}
-            width={plotWidth}
-            height={plotHeight}
-            active={activePlot === "C"}
-            onActivate={() => setActivePlot("C")}
-            showTopPanel={false}
-            showSidePanel
-            renderSidePanelInline={false}
-            sidePanelContainer={sidePanelRef.current}
-          />
+          {plots.map(id => (
+            <Plot
+              key={id}
+              ref={node => {
+                if (node) plotRefs.current.set(id, node);
+                else plotRefs.current.delete(id);
+              }}
+              width={plotWidth}
+              height={plotHeight}
+              active={activePlot === id}
+              onActivate={() => setActivePlot(id)}
+              showTopPanel={false}
+              showSidePanel
+              renderSidePanelInline={false}
+              sidePanelContainer={sidePanelRef.current}
+              onRemove={plots.length > 1 ? () => removePlot(id) : undefined}
+            />
+          ))}
+          <button
+            onClick={addPlot}
+            style={{
+              padding: "10px 12px",
+              width: "fit-content",
+              borderRadius: 6,
+              border: "1px solid #ccc",
+              background: "#f7f7f7",
+              cursor: "pointer",
+            }}
+          >
+            + Add plot
+          </button>
         </div>
       </div>
 
