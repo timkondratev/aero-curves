@@ -1,5 +1,5 @@
 import { scaleLinear, line, curveMonotoneX } from "d3";
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, useLayoutEffect } from "react";
 
 // Constants
 const MARGIN = { top: 20, right: 20, bottom: 40, left: 50 };
@@ -12,8 +12,28 @@ type PlotProps = { width: number; height: number };
 type Point = { x: number; y: number };
 
 export function Plot({ width, height }: PlotProps) {
-  // Dimensions
-  const innerWidth = width - MARGIN.left - MARGIN.right;
+  // Dimensions (plot flexes; side panel sizes to content)
+  const sidePanelRef = useRef<HTMLDivElement | null>(null);
+  const [sidePanelWidth, setSidePanelWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const node = sidePanelRef.current;
+    if (!node) return;
+
+    const updateWidth = () => {
+      setSidePanelWidth(node.getBoundingClientRect().width);
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const plotWidth = Math.max(200, width - sidePanelWidth);
+  const innerWidth = plotWidth - MARGIN.left - MARGIN.right;
   const innerHeight = height - MARGIN.top - MARGIN.bottom;
 
   // State
@@ -474,207 +494,211 @@ export function Plot({ width, height }: PlotProps) {
   };
 
   return (
-    <div className="curve-editor" style={{ position: "relative", width, height: height + 120 }}> {/* Adjusted height for all panels */}
-      {/* Inspector Panel */}
+    <div className="curve-editor" style={{ display: "flex", width, height: height + 120 }}>
+      <div style={{ flex: "1 1 0", paddingRight: 10, minWidth: 0 }}>
+        {/* Inspector Panel */}
+        <div
+          style={{
+            height: 40,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundColor: "#f0f0f0",
+            padding: "0 10px",
+            borderBottom: "1px solid #ccc",
+          }}
+        >
+          <label>
+            X:
+            <input
+              type="text"
+              value={inputX}
+              onChange={e => setInputX(e.target.value)}
+              onBlur={() => handleInputBlur("x")}
+              style={{ marginLeft: 5, width: 80 }}
+              disabled={!meanCoordinates}
+            />
+          </label>
+          <label>
+            Y:
+            <input
+              type="text"
+              value={inputY}
+              onChange={e => setInputY(e.target.value)}
+              onBlur={() => handleInputBlur("y")}
+              style={{ marginLeft: 5, width: 80 }}
+              disabled={!meanCoordinates}
+            />
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={snapX}
+              onChange={e => setSnapX(e.target.checked)}
+              style={{ marginLeft: 10 }}
+            />
+            Snap X
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={snapY}
+              onChange={e => setSnapY(e.target.checked)}
+              style={{ marginLeft: 10 }}
+            />
+            Snap Y
+          </label>
+        </div>
+
+        {/* Selection Manipulation Panel */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
+          <button onClick={flipVertical}>Flip Vertical</button>
+          <button onClick={flipHorizontal}>Flip Horizontal</button>
+          <button onClick={trim}>Trim</button>
+          <button onClick={trimLeft}>Trim Left</button>
+          <button onClick={trimRight}>Trim Right</button>
+          <button onClick={mirrorLeft}>Mirror Left</button>
+          <button onClick={mirrorRight}>Mirror Right</button>
+          <button onClick={duplicateLeft}>Duplicate Left</button>
+          <button onClick={duplicateRight}>Duplicate Right</button>
+        </div>
+
+        {/* SVG Plot */}
+        <svg
+          className="plot"
+          width={plotWidth}
+          height={height}
+          style={{ userSelect: "none", touchAction: "none" }}
+          onDoubleClick={e => {
+            const { x, y } = getSvgCoords(e);
+            const domainX = xScale.invert(Math.max(0, Math.min(innerWidth, x)));
+            const domainY = yScale.invert(Math.max(0, Math.min(innerHeight, y)));
+            setPoints(prev => [...prev, { x: domainX, y: domainY }].sort((a, b) => a.x - b.x));
+            setSelectedIndices(new Set());
+          }}
+          onPointerDown={handleBackgroundPointerDown}
+          onPointerMove={handleBackgroundPointerMove}
+          onPointerUp={handleBackgroundPointerUp}
+        >
+          <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+            {/* Axes */}
+            <line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke="black" />
+            {xTicks.map(tick => (
+              <g key={tick} transform={`translate(${xScale(tick)}, ${innerHeight})`}>
+                <line y2={6} stroke="black" />
+                <text y={20} textAnchor="middle" fontSize={12}>{tick}</text>
+              </g>
+            ))}
+            <line x1={0} x2={0} y1={0} y2={innerHeight} stroke="black" />
+            {yTicks.map(tick => (
+              <g key={tick} transform={`translate(0, ${yScale(tick)})`}>
+                <line x2={-6} stroke="black" />
+                <text x={-10} dy="0.32em" textAnchor="end" fontSize={12}>{tick}</text>
+              </g>
+            ))}
+
+            {/* Curve */}
+            <path d={pathD} fill="none" stroke="black" strokeWidth={1.5} />
+
+            {/* Brush */}
+            {brush && (
+              <rect
+                x={Math.min(brush.x0, brush.x1)}
+                y={0}
+                width={Math.abs(brush.x1 - brush.x0)}
+                height={innerHeight}
+                fill="rgba(0,120,215,0.2)"
+              />
+            )}
+
+            {/* Control Points */}
+            {sortedPoints.map((p, i) => (
+              <circle
+                key={i}
+                cx={xScale(p.x)}
+                cy={yScale(p.y)}
+                r={5}
+                fill={selectedIndices.has(i) ? "black" : "white"}
+                stroke="black"
+                style={{ cursor: "pointer" }}
+                onPointerDown={e => handlePointPointerDown(i, e)}
+                onPointerMove={e => {
+                  if (isDraggingPoints.current) {
+                    const { x, y } = getSvgCoords(e);
+                    movePoints(x, y);
+                  }
+                }}
+                onPointerUp={handlePointPointerUp}
+                onDoubleClick={e => {
+                  e.stopPropagation();
+                  setPoints(prev => {
+                    if (prev.length <= MIN_POINTS) return prev;
+                    return prev.filter((_, idx) => idx !== i);
+                  });
+                  setSelectedIndices(new Set());
+                }}
+              />
+            ))}
+
+            {/* Min-Max Lines for Selected Points */}
+            {minMaxLines && (
+              <g>
+                {/* X-axis lines */}
+                <line
+                  x1={xScale(minMaxLines.minX)}
+                  x2={xScale(minMaxLines.minX)}
+                  y1={0}
+                  y2={innerHeight}
+                  stroke="red"
+                  strokeDasharray="4"
+                />
+                <line
+                  x1={xScale(minMaxLines.maxX)}
+                  x2={xScale(minMaxLines.maxX)}
+                  y1={0}
+                  y2={innerHeight}
+                  stroke="red"
+                  strokeDasharray="4"
+                />
+
+                {/* Y-axis lines */}
+                <line
+                  x1={0}
+                  x2={innerWidth}
+                  y1={yScale(minMaxLines.minY)}
+                  y2={yScale(minMaxLines.minY)}
+                  stroke="blue"
+                  strokeDasharray="4"
+                />
+                <line
+                  x1={0}
+                  x2={innerWidth}
+                  y1={yScale(minMaxLines.maxY)}
+                  y2={yScale(minMaxLines.maxY)}
+                  stroke="blue"
+                  strokeDasharray="4"
+                />
+              </g>
+            )}
+          </g>
+        </svg>
+      </div>
+
+      {/* Side Panel (sizes to content) */}
       <div
+        ref={sidePanelRef}
         style={{
-          height: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flex: "0 0 auto",
+          width: "max-content",
+          padding: "10px",
           backgroundColor: "#f0f0f0",
-          padding: "0 10px",
-          borderBottom: "1px solid #ccc",
-        }}
-      >
-        <label>
-          X:
-          <input
-            type="text"
-            value={inputX}
-            onChange={e => setInputX(e.target.value)}
-            onBlur={() => handleInputBlur("x")}
-            style={{ marginLeft: 5, width: 80 }}
-            disabled={!meanCoordinates} // Disable input if no points are selected
-          />
-        </label>
-        <label>
-          Y:
-          <input
-            type="text"
-            value={inputY}
-            onChange={e => setInputY(e.target.value)}
-            onBlur={() => handleInputBlur("y")}
-            style={{ marginLeft: 5, width: 80 }}
-            disabled={!meanCoordinates} // Disable input if no points are selected
-          />
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={snapX}
-            onChange={e => setSnapX(e.target.checked)}
-            style={{ marginLeft: 10 }}
-          />
-          Snap X
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={snapY}
-            onChange={e => setSnapY(e.target.checked)}
-            style={{ marginLeft: 10 }}
-          />
-          Snap Y
-        </label>
-      </div>
-
-      {/* Selection Manipulation Panel */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
-        <button onClick={flipVertical}>Flip Vertical</button>
-        <button onClick={flipHorizontal}>Flip Horizontal</button>
-        <button onClick={trim}>Trim</button>
-        <button onClick={trimLeft}>Trim Left</button>
-        <button onClick={trimRight}>Trim Right</button>
-        <button onClick={mirrorLeft}>Mirror Left</button>
-        <button onClick={mirrorRight}>Mirror Right</button>
-        <button onClick={duplicateLeft}>Duplicate Left</button>
-        <button onClick={duplicateRight}>Duplicate Right</button>
-      </div>
-
-      {/* SVG Plot */}
-      <svg
-        className="plot"
-        width={width}
-        height={height}
-        style={{ userSelect: "none", touchAction: "none" }}
-        onDoubleClick={e => {
-          const { x, y } = getSvgCoords(e);
-          const domainX = xScale.invert(Math.max(0, Math.min(innerWidth, x)));
-          const domainY = yScale.invert(Math.max(0, Math.min(innerHeight, y)));
-          setPoints(prev => [...prev, { x: domainX, y: domainY }].sort((a, b) => a.x - b.x));
-          setSelectedIndices(new Set());
-        }}
-        onPointerDown={handleBackgroundPointerDown}
-        onPointerMove={handleBackgroundPointerMove}
-        onPointerUp={handleBackgroundPointerUp}
-      >
-        <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-          {/* Axes */}
-          <line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke="black" />
-          {xTicks.map(tick => (
-            <g key={tick} transform={`translate(${xScale(tick)}, ${innerHeight})`}>
-              <line y2={6} stroke="black" />
-              <text y={20} textAnchor="middle" fontSize={12}>{tick}</text>
-            </g>
-          ))}
-          <line x1={0} x2={0} y1={0} y2={innerHeight} stroke="black" />
-          {yTicks.map(tick => (
-            <g key={tick} transform={`translate(0, ${yScale(tick)})`}>
-              <line x2={-6} stroke="black" />
-              <text x={-10} dy="0.32em" textAnchor="end" fontSize={12}>{tick}</text>
-            </g>
-          ))}
-
-          {/* Curve */}
-          <path d={pathD} fill="none" stroke="black" strokeWidth={1.5} />
-
-          {/* Brush */}
-          {brush && (
-            <rect
-              x={Math.min(brush.x0, brush.x1)}
-              y={0}
-              width={Math.abs(brush.x1 - brush.x0)}
-              height={innerHeight}
-              fill="rgba(0,120,215,0.2)"
-            />
-          )}
-
-          {/* Control Points */}
-          {sortedPoints.map((p, i) => (
-            <circle
-              key={i}
-              cx={xScale(p.x)}
-              cy={yScale(p.y)}
-              r={5}
-              fill={selectedIndices.has(i) ? "black" : "white"}
-              stroke="black"
-              style={{ cursor: "pointer" }}
-              onPointerDown={e => handlePointPointerDown(i, e)}
-              onPointerMove={e => {
-                if (isDraggingPoints.current) {
-                  const { x, y } = getSvgCoords(e);
-                  movePoints(x, y);
-                }
-              }}
-              onPointerUp={handlePointPointerUp}
-              onDoubleClick={e => {
-                e.stopPropagation();
-                setPoints(prev => {
-                  if (prev.length <= MIN_POINTS) return prev; // Ensure at least MIN_POINTS remain
-                  return prev.filter((_, idx) => idx !== i); // Remove the clicked point
-                });
-                setSelectedIndices(new Set());
-              }}
-            />
-          ))}
-
-          {/* Min-Max Lines for Selected Points */}
-          {minMaxLines && (
-            <g>
-              {/* X-axis lines */}
-              <line
-                x1={xScale(minMaxLines.minX)}
-                x2={xScale(minMaxLines.minX)}
-                y1={0}
-                y2={innerHeight}
-                stroke="red"
-                strokeDasharray="4"
-              />
-              <line
-                x1={xScale(minMaxLines.maxX)}
-                x2={xScale(minMaxLines.maxX)}
-                y1={0}
-                y2={innerHeight}
-                stroke="red"
-                strokeDasharray="4"
-              />
-
-              {/* Y-axis lines */}
-              <line
-                x1={0}
-                x2={innerWidth}
-                y1={yScale(minMaxLines.minY)}
-                y2={yScale(minMaxLines.minY)}
-                stroke="blue"
-                strokeDasharray="4"
-              />
-              <line
-                x1={0}
-                x2={innerWidth}
-                y1={yScale(minMaxLines.maxY)}
-                y2={yScale(minMaxLines.maxY)}
-                stroke="blue"
-                strokeDasharray="4"
-              />
-            </g>
-          )}
-        </g>
-      </svg>
-
-      {/* Snapping Precision and Axes Domain Control Panel */}
-      <div
-        style={{
-          height: 80,
+          borderLeft: "1px solid #ccc",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
-          backgroundColor: "#f0f0f0",
-          padding: "10px",
-          borderTop: "1px solid #ccc",
+          gap: 10,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <label>
             Snap Precision X:
             <select
@@ -699,8 +723,6 @@ export function Plot({ width, height }: PlotProps) {
               <option value={0.01}>0.01</option>
             </select>
           </label>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
           <label>
             X Min:
             <input
@@ -708,7 +730,7 @@ export function Plot({ width, height }: PlotProps) {
               value={inputXDomain[0]}
               onChange={e => setInputXDomain([e.target.value, inputXDomain[1]])}
               onBlur={() => handleDomainInputBlur("x", "min")}
-              style={{ marginLeft: 5, width: 80 }}
+              style={{ marginLeft: 5, width: 120 }}
             />
           </label>
           <label>
@@ -718,7 +740,7 @@ export function Plot({ width, height }: PlotProps) {
               value={inputXDomain[1]}
               onChange={e => setInputXDomain([inputXDomain[0], e.target.value])}
               onBlur={() => handleDomainInputBlur("x", "max")}
-              style={{ marginLeft: 5, width: 80 }}
+              style={{ marginLeft: 5, width: 120 }}
             />
           </label>
           <label>
@@ -728,7 +750,7 @@ export function Plot({ width, height }: PlotProps) {
               value={inputYDomain[0]}
               onChange={e => setInputYDomain([e.target.value, inputYDomain[1]])}
               onBlur={() => handleDomainInputBlur("y", "min")}
-              style={{ marginLeft: 5, width: 80 }}
+              style={{ marginLeft: 5, width: 120 }}
             />
           </label>
           <label>
@@ -738,7 +760,7 @@ export function Plot({ width, height }: PlotProps) {
               value={inputYDomain[1]}
               onChange={e => setInputYDomain([inputYDomain[0], e.target.value])}
               onBlur={() => handleDomainInputBlur("y", "max")}
-              style={{ marginLeft: 5, width: 80 }}
+              style={{ marginLeft: 5, width: 120 }}
             />
           </label>
         </div>
