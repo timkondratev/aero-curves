@@ -339,6 +339,12 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
     }
   };
 
+  const handleInputKeyDown = (axis: "x" | "y", e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleInputBlur(axis);
+    }
+  };
+
   const handleDomainInputBlur = (axis: "x" | "y", minOrMax: "min" | "max") => {
     const value = axis === "x"
       ? parseFloat(minOrMax === "min" ? inputXDomain[0] : inputXDomain[1])
@@ -353,6 +359,16 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
       } else {
         setInputYDomain([yDomain[0].toString(), yDomain[1].toString()]);
       }
+    }
+  };
+
+  const handleDomainInputKeyDown = (
+    axis: "x" | "y",
+    minOrMax: "min" | "max",
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (e.key === "Enter") {
+      handleDomainInputBlur(axis, minOrMax);
     }
   };
 
@@ -581,6 +597,7 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
             value={inputX}
             onChange={e => setInputX(e.target.value)}
             onBlur={() => handleInputBlur("x")}
+            onKeyDown={e => handleInputKeyDown("x", e)}
             style={{ marginLeft: 5, width: 120 }}
             disabled={!meanCoordinates}
           />
@@ -592,6 +609,7 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
             value={inputY}
             onChange={e => setInputY(e.target.value)}
             onBlur={() => handleInputBlur("y")}
+            onKeyDown={e => handleInputKeyDown("y", e)}
             style={{ marginLeft: 5, width: 120 }}
             disabled={!meanCoordinates}
           />
@@ -647,6 +665,7 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
             value={inputXDomain[0]}
             onChange={e => setInputXDomain([e.target.value, inputXDomain[1]])}
             onBlur={() => handleDomainInputBlur("x", "min")}
+            onKeyDown={e => handleDomainInputKeyDown("x", "min", e)}
             style={{ marginLeft: 5, width: 120 }}
           />
         </label>
@@ -657,6 +676,7 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
             value={inputXDomain[1]}
             onChange={e => setInputXDomain([inputXDomain[0], e.target.value])}
             onBlur={() => handleDomainInputBlur("x", "max")}
+            onKeyDown={e => handleDomainInputKeyDown("x", "max", e)}
             style={{ marginLeft: 5, width: 120 }}
           />
         </label>
@@ -667,6 +687,7 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
             value={inputYDomain[0]}
             onChange={e => setInputYDomain([e.target.value, inputYDomain[1]])}
             onBlur={() => handleDomainInputBlur("y", "min")}
+            onKeyDown={e => handleDomainInputKeyDown("y", "min", e)}
             style={{ marginLeft: 5, width: 120 }}
           />
         </label>
@@ -677,6 +698,7 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
             value={inputYDomain[1]}
             onChange={e => setInputYDomain([inputYDomain[0], e.target.value])}
             onBlur={() => handleDomainInputBlur("y", "max")}
+            onKeyDown={e => handleDomainInputKeyDown("y", "max", e)}
             style={{ marginLeft: 5, width: 120 }}
           />
         </label>
