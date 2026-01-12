@@ -111,12 +111,16 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
   // Ticks
   const xTicks = useMemo(() => {
     const [min, max] = xDomain;
-    return scaleLinear().domain([min, max]).ticks(10); // Generate 10 "nice" ticks
+    const base = scaleLinear().domain([min, max]).ticks(10); // Generate 10 "nice" ticks
+    const withEnds = Array.from(new Set([...base, min, max]));
+    return withEnds.sort((a, b) => a - b);
   }, [xDomain]);
 
   const yTicks = useMemo(() => {
     const [min, max] = yDomain;
-    return scaleLinear().domain([min, max]).ticks(10); // Generate 10 "nice" ticks
+    const base = scaleLinear().domain([min, max]).ticks(10); // Generate 10 "nice" ticks
+    const withEnds = Array.from(new Set([...base, min, max]));
+    return withEnds.sort((a, b) => a - b);
   }, [yDomain]);
 
   // Derived Data
@@ -802,6 +806,14 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
                   <text x={-10} dy="0.32em" textAnchor="end" fontSize={12}>{tick}</text>
                 </g>
               ))}
+
+              {/* Zero axes */}
+              {xDomain[0] <= 0 && xDomain[1] >= 0 && (
+                <line x1={xScale(0)} x2={xScale(0)} y1={0} y2={innerHeight} stroke="#888" strokeWidth={1} />
+              )}
+              {yDomain[0] <= 0 && yDomain[1] >= 0 && (
+                <line x1={0} x2={innerWidth} y1={yScale(0)} y2={yScale(0)} stroke="#888" strokeWidth={1} />
+              )}
 
               {/* Curve */}
               <path d={pathD} fill="none" stroke="black" strokeWidth={1.5} />
