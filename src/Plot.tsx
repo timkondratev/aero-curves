@@ -229,15 +229,15 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
           const left = dragPointsStart.current
             .slice(0, i)
             .reverse()
-            .find((_, idx) => !selectedIndices.has(i - idx - 1))?.x ?? X_DOMAIN[0];
+            .find((_, idx) => !selectedIndices.has(i - idx - 1))?.x ?? xDomain[0];
           const right = dragPointsStart.current
             .slice(i + 1)
-            .find((_, idx) => !selectedIndices.has(i + idx + 1))?.x ?? X_DOMAIN[1];
+            .find((_, idx) => !selectedIndices.has(i + idx + 1))?.x ?? xDomain[1];
 
-          // Clamp X/Y to domains and unselected neighbors
+          // Clamp X/Y to current domains and unselected neighbors
           x = Math.max(left, Math.min(right, x));
-          x = Math.max(X_DOMAIN[0], Math.min(X_DOMAIN[1], x));
-          y = Math.max(Y_DOMAIN[0], Math.min(Y_DOMAIN[1], y));
+          x = Math.max(xDomain[0], Math.min(xDomain[1], x));
+          y = Math.max(yDomain[0], Math.min(yDomain[1], y));
 
           next[i] = { x, y };
         });
