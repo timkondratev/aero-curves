@@ -336,27 +336,57 @@ export function Plot({ width, height }: PlotProps) {
     setSelectedIndices(new Set()); // Deselect all points
   };
 
-  // Update mirrorRight and mirrorLeft to keep mirrored points
+  // Mirror right: rebuild array with overlap removal (no global sort)
   const mirrorRight = () => {
-    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+    const selected = Array.from(selectedIndices).sort((a, b) => a - b);
+    if (selected.length < 2) return; // need at least 2 to mirror
+
+    const selectedPoints = selected.map(i => points[i]);
     const maxX = Math.max(...selectedPoints.map(p => p.x));
-    const mirrored = selectedPoints.slice(0, -1).map(p => ({ x: maxX + (maxX - p.x), y: p.y }));
-    setPoints(prev => {
-      const filtered = prev.filter(p => !mirrored.some(m => Math.abs(m.x - p.x) < 1e-6));
-      return [...filtered, ...mirrored].sort((a, b) => a.x - b.x);
-    });
-    setSelectedIndices(new Set()); // Deselect all points
+
+    // Build mirrored points in ascending x order
+    const mirrored = selected.slice(0, -1).reverse().map(i => ({
+      x: maxX + (maxX - points[i].x),
+      y: points[i].y,
+    }));
+
+    const lastIdx = selected[selected.length - 1];
+    const mirrorCount = mirrored.length;
+
+    // Remove overlapping region to the right equal to mirror length
+    const rightRemoveStart = lastIdx + 1;
+    const rightRemoveEnd = Math.min(points.length, rightRemoveStart + mirrorCount);
+    const leftKeep = points.slice(0, rightRemoveStart);
+    const rightKeep = points.slice(rightRemoveEnd);
+
+    setPoints([...leftKeep, ...mirrored, ...rightKeep]);
+    setSelectedIndices(new Set());
   };
 
+  // Mirror left: rebuild array with overlap removal (no global sort)
   const mirrorLeft = () => {
-    const selectedPoints = Array.from(selectedIndices).map(i => points[i]);
+    const selected = Array.from(selectedIndices).sort((a, b) => a - b);
+    if (selected.length < 2) return; // need at least 2 to mirror
+
+    const selectedPoints = selected.map(i => points[i]);
     const minX = Math.min(...selectedPoints.map(p => p.x));
-    const mirrored = selectedPoints.slice(1).map(p => ({ x: minX - (p.x - minX), y: p.y }));
-    setPoints(prev => {
-      const filtered = prev.filter(p => !mirrored.some(m => Math.abs(m.x - p.x) < 1e-6));
-      return [...filtered, ...mirrored].sort((a, b) => a.x - b.x);
-    });
-    setSelectedIndices(new Set()); // Deselect all points
+
+    // Build mirrored points in ascending x order
+    const mirrored = selected.slice(1).map(i => ({
+      x: minX - (points[i].x - minX),
+      y: points[i].y,
+    })).reverse();
+
+    const firstIdx = selected[0];
+    const mirrorCount = mirrored.length;
+
+    // Remove overlapping region to the left equal to mirror length
+    const leftRemoveEnd = Math.max(0, firstIdx - mirrorCount);
+    const leftKeep = points.slice(0, leftRemoveEnd);
+    const rightKeep = points.slice(firstIdx);
+
+    setPoints([...leftKeep, ...mirrored, ...rightKeep]);
+    setSelectedIndices(new Set());
   };
 
   const flipVertical = () => {
