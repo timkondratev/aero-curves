@@ -19,6 +19,7 @@ function App() {
   const [plots, setPlots] = useState<string[]>(["plot-1"]);
   const [activePlot, setActivePlot] = useState<string>("plot-1");
   const [sideWidth, setSideWidth] = useState(300);
+  const [names, setNames] = useState<Record<string, string>>({ "plot-1": "curve_1" });
 
   const plotRefs = useRef(new Map<string, PlotHandle>());
   const nextId = useRef(2);
@@ -53,9 +54,25 @@ function App() {
     if (handle) fn(handle);
   };
 
+  const ensureUniqueName = (base: string, current: Record<string, string>, selfId?: string) => {
+    const used = new Set(
+      Object.entries(current)
+        .filter(([id]) => id !== selfId)
+        .map(([, name]) => name)
+    );
+    let candidate = base;
+    while (used.has(candidate)) {
+      candidate += "_";
+    }
+    return candidate;
+  };
+
   const addPlot = () => {
     const id = `plot-${nextId.current++}`;
     setPlots(prev => [...prev, id]);
+    const base = `curve_${plots.length + 1}`;
+    const unique = ensureUniqueName(base, names);
+    setNames(prev => ({ ...prev, [id]: unique }));
     setActivePlot(id);
   };
 
@@ -67,6 +84,10 @@ function App() {
         setActivePlot(next[0]);
       }
       return next;
+    });
+    setNames(prev => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
     });
   };
 
@@ -148,6 +169,12 @@ function App() {
               height={plotHeight}
               active={activePlot === id}
               onActivate={() => setActivePlot(id)}
+              defaultName={names[id] ?? `curve_${id}`}
+              onNameChange={name => {
+                const unique = ensureUniqueName(name, names, id);
+                setNames(prev => ({ ...prev, [id]: unique }));
+                return unique;
+              }}
               showTopPanel={false}
               showSidePanel
               renderSidePanelInline={false}

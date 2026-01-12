@@ -30,6 +30,8 @@ type PlotProps = {
   height: number;
   active: boolean;
   onActivate: () => void;
+  defaultName: string;
+  onNameChange?: (name: string) => string;
   showTopPanel?: boolean;
   showSidePanel?: boolean;
   renderSidePanelInline?: boolean;
@@ -44,6 +46,8 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
     height,
     active,
     onActivate,
+    defaultName,
+    onNameChange,
     showTopPanel = true,
     showSidePanel = true,
     renderSidePanelInline = true,
@@ -154,7 +158,12 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
   const [snapY, setSnapY] = useState(false);
   const [snapPrecisionX, setSnapPrecisionX] = useState(1.0);
   const [snapPrecisionY, setSnapPrecisionY] = useState(1.0);
-  const [plotName, setPlotName] = useState("curve_1");
+  const [plotName, setPlotName] = useState(defaultName);
+
+  const onNameChangeRef = useRef(onNameChange);
+  useEffect(() => {
+    onNameChangeRef.current = onNameChange;
+  }, [onNameChange]);
 
   const snapValue = (value: number, precision: number) => {
     return Math.round(value / precision) * precision;
@@ -180,6 +189,10 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
     setInputXDomain([xDomain[0].toString(), xDomain[1].toString()]);
     setInputYDomain([yDomain[0].toString(), yDomain[1].toString()]);
   }, [meanCoordinates, xDomain, yDomain]);
+
+  useEffect(() => {
+    setPlotName(defaultName);
+  }, [defaultName]);
 
   // Utility Functions
   const getSvgCoords = (e: React.PointerEvent | React.MouseEvent) => {
@@ -259,7 +272,7 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
   }, []);
 
   // Pointer Handlers
-  const startPointDrag = (i: number, e: React.PointerEvent) => {
+  const startPointDrag = (_i: number, e: React.PointerEvent) => {
     dragStart.current = getSvgCoords(e);
     dragPointsStart.current = [...points];
     isDraggingPoints.current = true;
@@ -588,7 +601,11 @@ export const Plot = forwardRef<PlotHandle, PlotProps>(function Plot(
           <input
             type="text"
             value={plotName}
-            onChange={e => setPlotName(e.target.value)}
+            onChange={e => {
+              const val = e.target.value;
+              const resolved = onNameChangeRef.current ? onNameChangeRef.current(val) : val;
+              setPlotName(resolved);
+            }}
             style={{ marginLeft: 5, width: 180 }}
           />
         </label>
