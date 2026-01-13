@@ -139,6 +139,20 @@
 	stroke: none;
 }
 
+.selection-bounds line {
+	pointer-events: none;
+}
+
+.selection-bounds .selection-x-line {
+	stroke: red;
+	stroke-dasharray: 4;
+}
+
+.selection-bounds .selection-y-line {
+	stroke: blue;
+	stroke-dasharray: 4;
+}
+
 .plot-header {
 	display: flex;
 	align-items: center;

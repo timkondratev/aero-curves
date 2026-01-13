@@ -272,6 +272,26 @@ export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
 		);
 	};
 
+	const renderSelectionBounds = () => {
+		if (!selection.size) return null;
+		const selected = pointsSorted.filter(p => selection.has(p.id));
+		if (!selected.length) return null;
+		const xs = selected.map(p => p.x);
+		const ys = selected.map(p => p.y);
+		const minX = Math.min(...xs);
+		const maxX = Math.max(...xs);
+		const minY = Math.min(...ys);
+		const maxY = Math.max(...ys);
+		return (
+			<g className="selection-bounds" pointerEvents="none">
+				<line className="selection-x-line" x1={xScale(minX)} x2={xScale(minX)} y1={0} y2={innerHeight} />
+				<line className="selection-x-line" x1={xScale(maxX)} x2={xScale(maxX)} y1={0} y2={innerHeight} />
+				<line className="selection-y-line" x1={0} x2={innerWidth} y1={yScale(minY)} y2={yScale(minY)} />
+				<line className="selection-y-line" x1={0} x2={innerWidth} y1={yScale(maxY)} y2={yScale(maxY)} />
+			</g>
+		);
+	};
+
 	return (
 		<div className={`plot-card${active ? " is-active" : ""}`} onPointerDownCapture={onActivate}>
 			<div className="plot-header">
@@ -343,6 +363,9 @@ export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
 
 						{/* Curve */}
 						<path d={pathD} fill="none" stroke="black" strokeWidth={1.5} />
+
+						{/* Selection bounds */}
+						{renderSelectionBounds()}
 
 						{/* Brush */}
 						{renderBrush()}
