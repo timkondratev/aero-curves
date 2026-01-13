@@ -219,34 +219,6 @@ export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
 		setSelection([]);
 	};
 
-	const flipVertical = () => {
-		if (!selection.size) return;
-		setPoints(flipSelectionY(plotRef.current.points, selection, plotRef.current.domainY, plotRef.current.snapY, plotRef.current.snapPrecisionY));
-	};
-
-	const flipHorizontal = () => {
-		if (!selection.size) return;
-		setPoints(flipSelectionX(plotRef.current.points, selection, plotRef.current.domainX, plotRef.current.snapX, plotRef.current.snapPrecisionX));
-	};
-
-	const handleTrimSelection = () => {
-		const next = trimToSelection(plotRef.current.points, selection);
-		setPoints(next);
-		setSelection([]);
-	};
-
-	const handleMirrorLeft = () => {
-		if (selection.size < 2) return;
-		setPoints(mirrorSelectionLeft(plotRef.current.points, selection, nextPointId));
-		setSelection([]);
-	};
-
-	const handleMirrorRight = () => {
-		if (selection.size < 2) return;
-		setPoints(mirrorSelectionRight(plotRef.current.points, selection, nextPointId));
-		setSelection([]);
-	};
-
 	const getLocalCoords = (
 		e: PointerEvent<SVGSVGElement | SVGCircleElement> | ReactMouseEvent<SVGSVGElement | SVGCircleElement>
 	) => {
@@ -302,24 +274,6 @@ export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
 						Remove
 					</button>
 				)}
-			</div>
-
-			<div className="plot-toolbar">
-				<button className="btn" onClick={flipVertical} disabled={!selection.size}>
-					Flip Y
-				</button>
-				<button className="btn" onClick={flipHorizontal} disabled={!selection.size}>
-					Flip X
-				</button>
-				<button className="btn" onClick={handleMirrorLeft} disabled={selection.size < 2}>
-					Mirror L
-				</button>
-				<button className="btn" onClick={handleMirrorRight} disabled={selection.size < 2}>
-					Mirror R
-				</button>
-				<button className="btn" onClick={handleTrimSelection} disabled={selection.size < 2}>
-					Trim selection
-				</button>
 			</div>
 
 			<div ref={frameRef} className="plot-frame">

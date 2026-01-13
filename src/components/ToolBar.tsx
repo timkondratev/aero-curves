@@ -1,35 +1,46 @@
-import type { PlotState, PlotId } from "../state/reducer";
+import type { PlotId } from "../state/reducer";
 
 type Props = {
 	activePlotId: PlotId | null;
-	plots: PlotState[];
 	onAddPlot: () => void;
-	onRemovePlot: (id: PlotId) => void;
-	onSetActive: (id: PlotId) => void;
+	onFlipX: () => void;
+	onFlipY: () => void;
+	onMirrorLeft: () => void;
+	onMirrorRight: () => void;
+	onTrim: () => void;
+	canFlip: boolean;
+	canMirror: boolean;
 };
 
-export function ToolBar({ activePlotId, plots, onAddPlot, onRemovePlot, onSetActive }: Props) {
+export function ToolBar({
+	activePlotId,
+	onAddPlot,
+	onFlipX,
+	onFlipY,
+	onMirrorLeft,
+	onMirrorRight,
+	onTrim,
+	canFlip,
+	canMirror,
+}: Props) {
 	return (
 		<div className="toolbar">
-			<button className="btn" onClick={onAddPlot}>
-				+ Add plot
+			<button className="btn" onClick={onAddPlot}>+ Add plot</button>
+			<button className="btn" onClick={onFlipY} disabled={!activePlotId || !canFlip}>
+				Flip Y
 			</button>
-
-			{plots.map(plot => (
-				<button
-					key={plot.id}
-					onClick={() => onSetActive(plot.id)}
-					className={`btn${plot.id === activePlotId ? " btn-active" : ""}`}
-				>
-					{plot.name}
-				</button>
-			))}
-
-			{activePlotId && plots.length > 1 && (
-				<button className="btn btn-remove" onClick={() => onRemovePlot(activePlotId)}>
-					Remove active
-				</button>
-			)}
+			<button className="btn" onClick={onFlipX} disabled={!activePlotId || !canFlip}>
+				Flip X
+			</button>
+			<button className="btn" onClick={onMirrorLeft} disabled={!activePlotId || !canMirror}>
+				Mirror L
+			</button>
+			<button className="btn" onClick={onMirrorRight} disabled={!activePlotId || !canMirror}>
+				Mirror R
+			</button>
+			<button className="btn" onClick={onTrim} disabled={!activePlotId || !canMirror}>
+				Trim selection
+			</button>
 		</div>
 	);
 }
