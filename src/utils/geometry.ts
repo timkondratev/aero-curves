@@ -67,10 +67,10 @@ export const mirrorSelectionRight = (
 	points: Point[],
 	selection: Set<PointId>,
 	makeId: () => PointId
-): Point[] => {
+): { points: Point[]; selection: PointId[] } => {
 	const sorted = sortPoints(points);
 	const selected = sorted.filter(p => selection.has(p.id));
-	if (selected.length < 2) return points;
+	if (selected.length < 2) return { points, selection: Array.from(selection) };
 
 	const maxX = Math.max(...selected.map(p => p.x));
 	const selectedIds = new Set(selected.map(p => p.id));
@@ -91,18 +91,19 @@ export const mirrorSelectionRight = (
 	const rightRemoveEnd = Math.min(sorted.length, rightRemoveStart + mirrorCount);
 	const leftKeep = sorted.slice(0, rightRemoveStart);
 	const rightKeep = sorted.slice(rightRemoveEnd);
-
-	return sortPoints([...leftKeep, ...mirrored, ...rightKeep]);
+	const nextPoints = sortPoints([...leftKeep, ...mirrored, ...rightKeep]);
+	const newSelection = [selected[selected.length - 1].id, ...mirrored.map(m => m.id)];
+	return { points: nextPoints, selection: newSelection };
 };
 
 export const mirrorSelectionLeft = (
 	points: Point[],
 	selection: Set<PointId>,
 	makeId: () => PointId
-): Point[] => {
+): { points: Point[]; selection: PointId[] } => {
 	const sorted = sortPoints(points);
 	const selected = sorted.filter(p => selection.has(p.id));
-	if (selected.length < 2) return points;
+	if (selected.length < 2) return { points, selection: Array.from(selection) };
 
 	const minX = Math.min(...selected.map(p => p.x));
 	const selectedIds = new Set(selected.map(p => p.id));
@@ -122,6 +123,72 @@ export const mirrorSelectionLeft = (
 	const leftRemoveEnd = Math.max(0, firstIdx - mirrorCount);
 	const leftKeep = sorted.slice(0, leftRemoveEnd);
 	const rightKeep = sorted.slice(firstIdx);
+	const nextPoints = sortPoints([...leftKeep, ...mirrored, ...rightKeep]);
+	const newSelection = [selected[0].id, ...mirrored.map(m => m.id)];
+	return { points: nextPoints, selection: newSelection };
+};
 
-	return sortPoints([...leftKeep, ...mirrored, ...rightKeep]);
+export const duplicateSelectionRight = (
+	points: Point[],
+	selection: Set<PointId>,
+	makeId: () => PointId
+): { points: Point[]; selection: PointId[] } => {
+	const sorted = sortPoints(points);
+	const selected = sorted.filter(p => selection.has(p.id));
+	if (!selected.length) return { points, selection: Array.from(selection) };
+
+	const selectedIds = new Set(selected.map(p => p.id));
+	const selectedIndices = sorted.reduce<number[]>((acc, p, idx) => {
+		if (selectedIds.has(p.id)) acc.push(idx);
+		return acc;
+	}, []);
+	const firstIdx = selectedIndices[0];
+	const lastIdx = selectedIndices[selectedIndices.length - 1];
+	const spanCount = lastIdx - firstIdx;
+
+	const minX = Math.min(...selected.map(p => p.x));
+	const maxX = Math.max(...selected.map(p => p.x));
+
+	const duplicated = selected.map(p => ({ id: makeId(), x: maxX + (p.x - minX), y: p.y }));
+
+	const rightRemoveStart = lastIdx + 1;
+	const rightRemoveEnd = Math.min(sorted.length, lastIdx + 1 + spanCount);
+	const leftKeep = sorted.slice(0, rightRemoveStart);
+	const rightKeep = sorted.slice(rightRemoveEnd);
+
+	const nextPoints = sortPoints([...leftKeep, ...duplicated, ...rightKeep]);
+	const newSelection = duplicated.map(p => p.id);
+	return { points: nextPoints, selection: newSelection };
+};
+
+export const duplicateSelectionLeft = (
+	points: Point[],
+	selection: Set<PointId>,
+	makeId: () => PointId
+): { points: Point[]; selection: PointId[] } => {
+	const sorted = sortPoints(points);
+	const selected = sorted.filter(p => selection.has(p.id));
+	if (!selected.length) return { points, selection: Array.from(selection) };
+
+	const selectedIds = new Set(selected.map(p => p.id));
+	const selectedIndices = sorted.reduce<number[]>((acc, p, idx) => {
+		if (selectedIds.has(p.id)) acc.push(idx);
+		return acc;
+	}, []);
+	const firstIdx = selectedIndices[0];
+	const lastIdx = selectedIndices[selectedIndices.length - 1];
+	const spanCount = lastIdx - firstIdx;
+
+	const minX = Math.min(...selected.map(p => p.x));
+	const maxX = Math.max(...selected.map(p => p.x));
+
+	const duplicated = selected.map(p => ({ id: makeId(), x: minX - (maxX - p.x), y: p.y }));
+
+	const leftRemoveEnd = Math.max(0, firstIdx - spanCount);
+	const leftKeep = sorted.slice(0, leftRemoveEnd);
+	const rightKeep = sorted.slice(firstIdx);
+
+	const nextPoints = sortPoints([...leftKeep, ...duplicated, ...rightKeep]);
+	const newSelection = duplicated.map(p => p.id);
+	return { points: nextPoints, selection: newSelection };
 };

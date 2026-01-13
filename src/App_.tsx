@@ -9,6 +9,8 @@ import {
 	flipSelectionY,
 	mirrorSelectionLeft,
 	mirrorSelectionRight,
+	duplicateSelectionLeft,
+	duplicateSelectionRight,
 	trimToSelection,
 } from "./utils/geometry";
 import "./styles/globals.css";
@@ -54,16 +56,28 @@ function App_() {
 	const handleMirrorLeft = () => {
 		updateActivePlot(p => ({
 			...p,
-			points: mirrorSelectionLeft(p.points, new Set(p.selection), () => crypto.randomUUID()),
-			selection: [],
+			...mirrorSelectionLeft(p.points, new Set(p.selection), () => crypto.randomUUID()),
 		}));
 	};
 
 	const handleMirrorRight = () => {
 		updateActivePlot(p => ({
 			...p,
-			points: mirrorSelectionRight(p.points, new Set(p.selection), () => crypto.randomUUID()),
-			selection: [],
+			...mirrorSelectionRight(p.points, new Set(p.selection), () => crypto.randomUUID()),
+		}));
+	};
+
+	const handleDuplicateLeft = () => {
+		updateActivePlot(p => ({
+			...p,
+			...duplicateSelectionLeft(p.points, new Set(p.selection), () => crypto.randomUUID()),
+		}));
+	};
+
+	const handleDuplicateRight = () => {
+		updateActivePlot(p => ({
+			...p,
+			...duplicateSelectionRight(p.points, new Set(p.selection), () => crypto.randomUUID()),
 		}));
 	};
 
@@ -71,7 +85,6 @@ function App_() {
 		updateActivePlot(p => ({
 			...p,
 			points: trimToSelection(p.points, new Set(p.selection)),
-			selection: [],
 		}));
 	};
 
@@ -86,6 +99,8 @@ function App_() {
 					onMirrorLeft={handleMirrorLeft}
 					onMirrorRight={handleMirrorRight}
 					onTrim={handleTrim}
+					onDuplicateLeft={handleDuplicateLeft}
+					onDuplicateRight={handleDuplicateRight}
 					canFlip={canFlip}
 					canMirror={canMirror}
 				/>

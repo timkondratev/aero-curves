@@ -8,6 +8,8 @@ type Props = {
 	onMirrorLeft: () => void;
 	onMirrorRight: () => void;
 	onTrim: () => void;
+	onDuplicateLeft: () => void;
+	onDuplicateRight: () => void;
 	canFlip: boolean;
 	canMirror: boolean;
 };
@@ -20,6 +22,8 @@ export function ToolBar({
 	onMirrorLeft,
 	onMirrorRight,
 	onTrim,
+	onDuplicateLeft,
+	onDuplicateRight,
 	canFlip,
 	canMirror,
 }: Props) {
@@ -37,6 +41,12 @@ export function ToolBar({
 			</button>
 			<button className="btn" onClick={onMirrorRight} disabled={!activePlotId || !canMirror}>
 				Mirror R
+			</button>
+			<button className="btn" onClick={onDuplicateLeft} disabled={!activePlotId || !canFlip}>
+				Duplicate L
+			</button>
+			<button className="btn" onClick={onDuplicateRight} disabled={!activePlotId || !canFlip}>
+				Duplicate R
 			</button>
 			<button className="btn" onClick={onTrim} disabled={!activePlotId || !canMirror}>
 				Trim selection
