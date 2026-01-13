@@ -1,4 +1,27 @@
-import type { PlotState } from "../state/reducer";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { scaleLinear, line, curveMonotoneX } from "d3";
+import type { PointerEvent, MouseEvent as ReactMouseEvent } from "react";
+import type { PlotState, PointId } from "../state/reducer";
+import {
+	addPoint,
+	clampValue,
+	flipSelectionX,
+	flipSelectionY,
+	mirrorSelectionLeft,
+	mirrorSelectionRight,
+	removePoint,
+	sortPoints,
+	trimToSelection,
+} from "../utils/geometry";
+import { snapValue } from "../utils/snapping";
+
+const MARGIN = { top: 20, right: 20, bottom: 32, left: 50 } as const;
+const MIN_POINTS = 2;
+const DEFAULT_HEIGHT = 360;
+const BRUSH_ACTIVATE_PX = 3;
+
+let pointIdCounter = 1;
+const nextPointId = () => `pt_${pointIdCounter++}`;
 
 type Props = {
 	plot: PlotState;
@@ -8,26 +31,340 @@ type Props = {
 	onRemove?: () => void;
 };
 
-export function Plot({ plot, active, onActivate, onRemove }: Props) {
+export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
+	const plotRef = useRef(plot);
+	const frameRef = useRef<HTMLDivElement | null>(null);
+	const [frameWidth, setFrameWidth] = useState(720);
+	const [height] = useState(DEFAULT_HEIGHT);
+	const brushStart = useRef<number | null>(null);
+	const brushActive = useRef(false);
+	const backgroundPointerActive = useRef(false);
+	const dragState = useRef<{
+		startX: number;
+		startY: number;
+		points: Map<PointId, { x: number; y: number }>;
+	} | null>(null);
+
+	useLayoutEffect(() => {
+		const node = frameRef.current;
+		if (!node) return;
+		const observer = new ResizeObserver(entries => {
+			const entry = entries[0];
+			if (entry) setFrameWidth(entry.contentRect.width);
+		});
+		observer.observe(node);
+		return () => observer.disconnect();
+	}, []);
+
+	const innerWidth = Math.max(200, frameWidth - MARGIN.left - MARGIN.right);
+	const innerHeight = Math.max(120, height - MARGIN.top - MARGIN.bottom);
+
+	const xScale = useMemo(
+		() => scaleLinear().domain(plot.domainX).range([0, innerWidth]),
+		[plot.domainX, innerWidth]
+	);
+	const yScale = useMemo(
+		() => scaleLinear().domain(plot.domainY).range([innerHeight, 0]),
+		[plot.domainY, innerHeight]
+	);
+
+	const pointsSorted = useMemo(
+		() => [...plot.points].sort((a, b) => a.x - b.x),
+		[plot.points]
+	);
+
+	const pathD = useMemo(() => {
+		return (
+			line<typeof pointsSorted[number]>()
+				.x(d => xScale(d.x))
+				.y(d => yScale(d.y))
+				.curve(curveMonotoneX)(pointsSorted) ?? ""
+		);
+	}, [pointsSorted, xScale, yScale]);
+
+	const selection = useMemo(() => new Set(plot.selection), [plot.selection]);
+
+	plotRef.current = plot;
+
+	const updatePlot = (partial: Partial<PlotState>) => {
+		const next = { ...plotRef.current, ...partial } as PlotState;
+		plotRef.current = next;
+		onChange(next);
+	};
+
+	const setSelection = (ids: PointId[]) => updatePlot({ selection: ids });
+	const setBrush = (brush: [number, number] | null) => updatePlot({ brush });
+	const setPoints = (pts: PlotState["points"]) => updatePlot({ points: pts });
+
+	const snapX = (value: number) => snapValue(value, plot.snapX, plot.snapPrecisionX);
+	const snapY = (value: number) => snapValue(value, plot.snapY, plot.snapPrecisionY);
+
+	const handleBackgroundPointerDown = (e: PointerEvent<SVGSVGElement>) => {
+		const { x } = getLocalCoords(e);
+		brushStart.current = x;
+		brushActive.current = false;
+		backgroundPointerActive.current = true;
+	};
+
+	const handleBackgroundPointerMove = (e: PointerEvent<SVGSVGElement>) => {
+		if (brushStart.current === null) return;
+		const { x } = getLocalCoords(e);
+		const dx = Math.abs(x - brushStart.current);
+		if (!brushActive.current && dx < BRUSH_ACTIVATE_PX) return;
+		if (!brushActive.current) {
+			brushActive.current = true;
+			e.currentTarget.setPointerCapture(e.pointerId);
+		}
+		setBrush([brushStart.current, x]);
+		const [a, b] = [brushStart.current, x].sort((m, n) => m - n);
+		const ids = pointsSorted
+			.filter(p => {
+				const sx = xScale(p.x);
+				return sx >= a && sx <= b;
+			})
+			.map(p => p.id);
+		setSelection(ids);
+	};
+
+	const handleBackgroundPointerUp = (e: PointerEvent<SVGSVGElement>) => {
+		if (brushActive.current) {
+			e.currentTarget.releasePointerCapture(e.pointerId);
+		}
+		if (backgroundPointerActive.current && !brushActive.current && selection.size) {
+			setSelection([]);
+		}
+		brushStart.current = null;
+		brushActive.current = false;
+		backgroundPointerActive.current = false;
+		setBrush(null);
+	};
+
+	const startDrag = (id: PointId, e: PointerEvent<SVGCircleElement>) => {
+		e.stopPropagation();
+		const withModifier = e.metaKey || e.ctrlKey || e.shiftKey;
+		if (!selection.has(id) && !withModifier) {
+			setSelection([id]);
+		} else if (withModifier) {
+			const next = new Set(selection);
+			next.has(id) ? next.delete(id) : next.add(id);
+			setSelection([...next]);
+		}
+
+		const start = getLocalCoords(e);
+		const map = new Map<PointId, { x: number; y: number }>();
+		plot.points.forEach(p => {
+			if (selection.has(p.id) || p.id === id) map.set(p.id, { x: p.x, y: p.y });
+		});
+		dragState.current = { startX: start.x, startY: start.y, points: map };
+		e.currentTarget.setPointerCapture(e.pointerId);
+	};
+
+	const handlePointMove = (e: PointerEvent<SVGCircleElement>) => {
+		if (!dragState.current) return;
+		const { x, y } = getLocalCoords(e);
+		const dx = xScale.invert(x) - xScale.invert(dragState.current.startX);
+		const dy = yScale.invert(y) - yScale.invert(dragState.current.startY);
+		const idsToMove = new Set(selection.size ? selection : Array.from(dragState.current.points.keys()));
+		const sorted = sortPoints(plotRef.current.points);
+		const indexById = new Map(sorted.map((p, idx) => [p.id, idx] as const));
+
+		const nextPoints = plotRef.current.points.map(p => {
+			if (!idsToMove.has(p.id)) return p;
+			const origin = dragState.current!.points.get(p.id) ?? { x: p.x, y: p.y };
+			const idx = indexById.get(p.id) ?? 0;
+			let left = plotRef.current.domainX[0];
+			for (let i = idx - 1; i >= 0; i--) {
+				const neighbor = sorted[i];
+				if (!idsToMove.has(neighbor.id)) {
+					left = Math.max(left, neighbor.x);
+					break;
+				}
+			}
+			let right = plotRef.current.domainX[1];
+			for (let i = idx + 1; i < sorted.length; i++) {
+				const neighbor = sorted[i];
+				if (!idsToMove.has(neighbor.id)) {
+					right = Math.min(right, neighbor.x);
+					break;
+				}
+			}
+			const rawX = origin.x + dx;
+			const clampedX = clampValue(clampValue(rawX, [left, right]), plotRef.current.domainX);
+			const clampedY = clampValue(origin.y + dy, plotRef.current.domainY);
+			const nx = snapX(clampedX);
+			const ny = snapY(clampedY);
+			return { ...p, x: nx, y: ny };
+		});
+		setPoints(sortPoints(nextPoints));
+	};
+
+	const endDrag = (e: PointerEvent<SVGCircleElement>) => {
+		e.currentTarget.releasePointerCapture(e.pointerId);
+		dragState.current = null;
+	};
+
+	const handleDoubleClickBackground = (e: ReactMouseEvent<SVGSVGElement>) => {
+		const { x, y } = getLocalCoords(e);
+		const domainX = xScale.invert(x);
+		const domainY = yScale.invert(y);
+		const pt = { id: nextPointId(), x: domainX, y: domainY };
+		setPoints(addPoint(plotRef.current.points, pt));
+		setSelection([]);
+	};
+
+	const handleDoubleClickPoint = (id: PointId, e: ReactMouseEvent<SVGCircleElement>) => {
+		e.stopPropagation();
+		if (plotRef.current.points.length <= MIN_POINTS) return;
+		setPoints(removePoint(plotRef.current.points, id));
+		setSelection([]);
+	};
+
+	const flipVertical = () => {
+		if (!selection.size) return;
+		setPoints(flipSelectionY(plotRef.current.points, selection, plotRef.current.domainY, plotRef.current.snapY, plotRef.current.snapPrecisionY));
+	};
+
+	const flipHorizontal = () => {
+		if (!selection.size) return;
+		setPoints(flipSelectionX(plotRef.current.points, selection, plotRef.current.domainX, plotRef.current.snapX, plotRef.current.snapPrecisionX));
+	};
+
+	const handleTrimSelection = () => {
+		const next = trimToSelection(plotRef.current.points, selection);
+		setPoints(next);
+		setSelection([]);
+	};
+
+	const handleMirrorLeft = () => {
+		if (selection.size < 2) return;
+		setPoints(mirrorSelectionLeft(plotRef.current.points, selection, nextPointId));
+		setSelection([]);
+	};
+
+	const handleMirrorRight = () => {
+		if (selection.size < 2) return;
+		setPoints(mirrorSelectionRight(plotRef.current.points, selection, nextPointId));
+		setSelection([]);
+	};
+
+	const getLocalCoords = (
+		e: PointerEvent<SVGSVGElement | SVGCircleElement> | ReactMouseEvent<SVGSVGElement | SVGCircleElement>
+	) => {
+		const svg = (e.currentTarget.ownerSVGElement ?? e.currentTarget) as SVGSVGElement;
+		const rect = svg.getBoundingClientRect();
+		return { x: e.clientX - rect.left - MARGIN.left, y: e.clientY - rect.top - MARGIN.top };
+	};
+
+	const renderBrush = () => {
+		if (!plot.brush) return null;
+		const [a, b] = plot.brush;
+		const x = Math.min(a, b);
+		const w = Math.abs(a - b);
+		return (
+			<rect
+				x={x}
+				y={0}
+				width={w}
+				height={innerHeight}
+				className="plot-brush"
+				pointerEvents="none"
+			/>
+		);
+	};
+
 	return (
-		<div className={`plot-card${active ? " is-active" : ""}`}>
+		<div className={`plot-card${active ? " is-active" : ""}`} onPointerDownCapture={onActivate}>
 			<div className="plot-header">
 				<strong>{plot.name}</strong>
 				<span className="plot-meta">points: {plot.points.length}</span>
-				<button className="btn" onClick={onActivate} style={{ marginLeft: "auto" }}>
-					{active ? "Active" : "Activate"}
-				</button>
 				{onRemove && (
-					<button className="btn" onClick={onRemove} style={{ marginLeft: 8 }}>
+					<button className="btn" onClick={onRemove} style={{ marginLeft: "auto" }}>
 						Remove
 					</button>
 				)}
 			</div>
-			<div className="plot-meta">
-				Domain X: [{plot.domainX[0]}, {plot.domainX[1]}] — Domain Y: [{plot.domainY[0]}, {plot.domainY[1]}]
+
+			<div className="plot-toolbar">
+				<button className="btn" onClick={flipVertical} disabled={!selection.size}>
+					Flip Y
+				</button>
+				<button className="btn" onClick={flipHorizontal} disabled={!selection.size}>
+					Flip X
+				</button>
+				<button className="btn" onClick={handleMirrorLeft} disabled={selection.size < 2}>
+					Mirror L
+				</button>
+				<button className="btn" onClick={handleMirrorRight} disabled={selection.size < 2}>
+					Mirror R
+				</button>
+				<button className="btn" onClick={handleTrimSelection} disabled={selection.size < 2}>
+					Trim selection
+				</button>
 			</div>
-			<div className="plot-meta">
-				Snap: X {plot.snapX ? "on" : "off"} ({plot.snapPrecisionX}), Y {plot.snapY ? "on" : "off"} ({plot.snapPrecisionY})
+
+			<div ref={frameRef} className="plot-frame">
+				<svg
+					className="plot-svg"
+					width={frameWidth}
+					height={height}
+					onPointerDown={handleBackgroundPointerDown}
+					onPointerMove={handleBackgroundPointerMove}
+					onPointerUp={handleBackgroundPointerUp}
+					onDoubleClick={handleDoubleClickBackground}
+				>
+					<g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+						{/* Axes */}
+						<line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke="black" />
+						{scaleLinear().domain(plot.domainX).ticks(10).map(tick => (
+							<g key={tick} transform={`translate(${xScale(tick)}, ${innerHeight})`}>
+								<line y2={6} stroke="black" />
+								<text y={20} textAnchor="middle" fontSize={12}>
+									{tick}
+								</text>
+							</g>
+						))}
+						<line x1={0} x2={0} y1={0} y2={innerHeight} stroke="black" />
+						{scaleLinear().domain(plot.domainY).ticks(10).map(tick => (
+							<g key={tick} transform={`translate(0, ${yScale(tick)})`}>
+								<line x2={-6} stroke="black" />
+								<text x={-10} dy="0.32em" textAnchor="end" fontSize={12}>
+									{tick}
+								</text>
+							</g>
+						))}
+
+						{/* Zero axes */}
+						{plot.domainX[0] <= 0 && plot.domainX[1] >= 0 && (
+							<line x1={xScale(0)} x2={xScale(0)} y1={0} y2={innerHeight} stroke="#888" strokeWidth={1} />
+						)}
+						{plot.domainY[0] <= 0 && plot.domainY[1] >= 0 && (
+							<line x1={0} x2={innerWidth} y1={yScale(0)} y2={yScale(0)} stroke="#888" strokeWidth={1} />
+						)}
+
+						{/* Curve */}
+						<path d={pathD} fill="none" stroke="black" strokeWidth={1.5} />
+
+						{/* Brush */}
+						{renderBrush()}
+
+						{/* Points */}
+						{pointsSorted.map(p => (
+							<circle
+								key={p.id}
+								cx={xScale(p.x)}
+								cy={yScale(p.y)}
+								r={5}
+								fill={selection.has(p.id) ? "black" : "white"}
+								stroke="black"
+								style={{ cursor: "pointer" }}
+								onPointerDown={e => startDrag(p.id, e)}
+								onPointerMove={handlePointMove}
+								onPointerUp={endDrag}
+								onDoubleClick={e => handleDoubleClickPoint(p.id, e)}
+							/>
+						))}
+					</g>
+				</svg>
 			</div>
 		</div>
 	);

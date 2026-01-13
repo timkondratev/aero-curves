@@ -1,5 +1,7 @@
 import type { ChangeEvent } from "react";
-import type { PlotState } from "../state/reducer";
+import type { PlotState, PointId } from "../state/reducer";
+import { clampValue, sortPoints } from "../utils/geometry";
+import { snapValue } from "../utils/snapping";
 
 type Props = {
 	plot: PlotState | null;
@@ -10,6 +12,19 @@ export function SideBar({ plot, onChange }: Props) {
 	if (!plot) {
 		return <div className="plot-meta">Select a plot to edit.</div>;
 	}
+
+	const selection = new Set<PointId>(plot.selection);
+	const selectedPoints = plot.points.filter(p => selection.has(p.id));
+	const center = (() => {
+		if (!selectedPoints.length) return null;
+		if (selectedPoints.length === 1) return { x: selectedPoints[0].x, y: selectedPoints[0].y };
+		const xs = selectedPoints.map(p => p.x);
+		const ys = selectedPoints.map(p => p.y);
+		return {
+			x: (Math.min(...xs) + Math.max(...xs)) / 2,
+			y: (Math.min(...ys) + Math.max(...ys)) / 2,
+		};
+	})();
 
 	const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
 		onChange({ ...plot, name: e.target.value });
@@ -41,11 +56,68 @@ export function SideBar({ plot, onChange }: Props) {
 		onChange(next);
 	};
 
+	const handleCoordChange = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
+		const val = parseFloat(e.target.value);
+		if (!selectedPoints.length || Number.isNaN(val)) return;
+		const snapEnabled = axis === "x" ? plot.snapX : plot.snapY;
+		const precision = axis === "x" ? plot.snapPrecisionX : plot.snapPrecisionY;
+		const domain = axis === "x" ? plot.domainX : plot.domainY;
+
+		if (selectedPoints.length === 1) {
+			const id = selectedPoints[0].id;
+			const nextPoints = sortPoints(
+				plot.points.map(p => {
+					if (p.id !== id) return p;
+					const snapped = snapValue(val, snapEnabled, precision);
+					return axis === "x"
+						? { ...p, x: clampValue(snapped, domain) }
+						: { ...p, y: clampValue(snapped, domain) };
+				})
+			);
+			onChange({ ...plot, points: nextPoints });
+			return;
+		}
+
+		// For multiple points, shift selection so its center moves to the target value
+		const currentCenter = center;
+		if (!currentCenter) return;
+		const delta = val - (axis === "x" ? currentCenter.x : currentCenter.y);
+		const nextPoints = sortPoints(
+			plot.points.map(p => {
+				if (!selection.has(p.id)) return p;
+				const shifted = axis === "x" ? p.x + delta : p.y + delta;
+				const snapped = snapValue(shifted, snapEnabled, precision);
+				if (axis === "x") return { ...p, x: clampValue(snapped, domain) };
+				return { ...p, y: clampValue(snapped, domain) };
+			})
+		);
+		onChange({ ...plot, points: nextPoints });
+	};
+
 	return (
 		<div className="sidebar-form">
 			<label className="field">
 				Name
 				<input value={plot.name} onChange={handleNameChange} />
+			</label>
+
+			<label className="field">
+				X
+				<input
+					type="number"
+					value={center ? center.x : ""}
+					onChange={handleCoordChange("x")}
+					disabled={!center}
+				/>
+			</label>
+			<label className="field">
+				Y
+				<input
+					type="number"
+					value={center ? center.y : ""}
+					onChange={handleCoordChange("y")}
+					disabled={!center}
+				/>
 			</label>
 
 			<div className="field-grid">
