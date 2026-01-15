@@ -42,10 +42,15 @@ export function SideBar({ plot, onChange }: Props) {
 		}
 	};
 
+	const handleShowGridToggle = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
+		const enabled = e.target.checked;
+		const next: PlotState = axis === "x" ? { ...plot, showGridX: enabled } : { ...plot, showGridY: enabled };
+		onChange(next);
+	};
+
 	const handleSnapToggle = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
 		const enabled = e.target.checked;
-		const next: PlotState =
-			axis === "x" ? { ...plot, snapX: enabled } : { ...plot, snapY: enabled };
+		const next: PlotState = axis === "x" ? { ...plot, snapX: enabled } : { ...plot, snapY: enabled };
 		onChange(next);
 	};
 
@@ -97,15 +102,10 @@ export function SideBar({ plot, onChange }: Props) {
 	return (
 		<div className="sidebar-form">
 			<div className="panel-section">
-				<div className="form-row">
-					<div className="row-label">Name</div>
-					<input className="row-control" value={plot.name} onChange={handleNameChange} />
-				</div>
-			</div>
-
-			<div className="panel-section">
-				<div className="form-row">
-					<div className="row-label">X</div>
+				<div className="section-title">SELECTION</div>
+				<div className="form-row inline-pair">
+					<div className="row-label">Coordinate</div>
+					<label className="mini-label">X</label>
 					<input
 						className="row-control"
 						type="number"
@@ -113,9 +113,7 @@ export function SideBar({ plot, onChange }: Props) {
 						onChange={handleCoordChange("x")}
 						disabled={!center}
 					/>
-				</div>
-				<div className="form-row">
-					<div className="row-label">Y</div>
+					<label className="mini-label">Y</label>
 					<input
 						className="row-control"
 						type="number"
@@ -127,17 +125,52 @@ export function SideBar({ plot, onChange }: Props) {
 			</div>
 
 			<div className="panel-section">
+				<div className="section-title">GRID</div>
+				<div className="form-row inline-pair">
+					<div className="row-label">Show grid</div>
+					<label className="mini-label" htmlFor="grid-show-x">X</label>
+					<input id="grid-show-x" type="checkbox" checked={plot.showGridX} onChange={handleShowGridToggle("x")} />
+					<label className="mini-label" htmlFor="grid-show-y">Y</label>
+					<input id="grid-show-y" type="checkbox" checked={plot.showGridY} onChange={handleShowGridToggle("y")} />
+				</div>
+				<div className="form-row inline-pair">
+					<div className="row-label">Snap to grid</div>
+					<label className="mini-label" htmlFor="snap-x">X</label>
+					<input id="snap-x" type="checkbox" checked={plot.snapX} onChange={handleSnapToggle("x")} />
+					<label className="mini-label" htmlFor="snap-y">Y</label>
+					<input id="snap-y" type="checkbox" checked={plot.snapY} onChange={handleSnapToggle("y")} />
+				</div>
+				<div className="form-row inline-pair">
+					<div className="row-label">Step</div>
+					<label className="mini-label">X</label>
+					<select className="row-control" value={plot.snapPrecisionX} onChange={handleSnapPrecision("x")}>
+						<option value={1}>1</option>
+						<option value={0.1}>0.1</option>
+						<option value={0.01}>0.01</option>
+					</select>
+					<label className="mini-label">Y</label>
+					<select className="row-control" value={plot.snapPrecisionY} onChange={handleSnapPrecision("y")}>
+						<option value={1}>1</option>
+						<option value={0.1}>0.1</option>
+						<option value={0.01}>0.01</option>
+					</select>
+				</div>
+			</div>
+
+			<div className="panel-section">
+				<div className="section-title">PLOT</div>
 				<div className="form-row">
-					<div className="row-label">X min</div>
+					<div className="row-label">Name</div>
+					<input className="row-control" value={plot.name} onChange={handleNameChange} />
+				</div>
+				<div className="form-row inline-pair">
+					<div className="row-label">Domain X</div>
 					<input
 						className="row-control"
 						type="number"
 						value={plot.domainX[0]}
 						onChange={handleDomainChange("x", 0)}
 					/>
-				</div>
-				<div className="form-row">
-					<div className="row-label">X max</div>
 					<input
 						className="row-control"
 						type="number"
@@ -145,63 +178,20 @@ export function SideBar({ plot, onChange }: Props) {
 						onChange={handleDomainChange("x", 1)}
 					/>
 				</div>
-				<div className="form-row">
-					<div className="row-label">Y min</div>
+				<div className="form-row inline-pair">
+					<div className="row-label">Domain Y</div>
 					<input
 						className="row-control"
 						type="number"
 						value={plot.domainY[0]}
 						onChange={handleDomainChange("y", 0)}
 					/>
-				</div>
-				<div className="form-row">
-					<div className="row-label">Y max</div>
 					<input
 						className="row-control"
 						type="number"
 						value={plot.domainY[1]}
 						onChange={handleDomainChange("y", 1)}
 					/>
-				</div>
-			</div>
-
-			<div className="panel-section">
-				<div className="form-row">
-					<label className="row-label" htmlFor="snap-x">Snap X</label>
-					<input
-						id="snap-x"
-						type="checkbox"
-						checked={plot.snapX}
-						onChange={handleSnapToggle("x")}
-					/>
-				</div>
-				<div className="form-row">
-					<label className="row-label" htmlFor="snap-y">Snap Y</label>
-					<input
-						id="snap-y"
-						type="checkbox"
-						checked={plot.snapY}
-						onChange={handleSnapToggle("y")}
-					/>
-				</div>
-			</div>
-
-			<div className="panel-section">
-				<div className="form-row">
-					<div className="row-label">X Precision</div>
-					<select className="row-control" value={plot.snapPrecisionX} onChange={handleSnapPrecision("x")}>
-						<option value={1}>1</option>
-						<option value={0.1}>0.1</option>
-						<option value={0.01}>0.01</option>
-					</select>
-				</div>
-				<div className="form-row">
-					<div className="row-label">Y Precision</div>
-					<select className="row-control" value={plot.snapPrecisionY} onChange={handleSnapPrecision("y")}>
-						<option value={1}>1</option>
-						<option value={0.1}>0.1</option>
-						<option value={0.01}>0.01</option>
-					</select>
 				</div>
 			</div>
 		</div>

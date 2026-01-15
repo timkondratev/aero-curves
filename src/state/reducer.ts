@@ -11,6 +11,8 @@ export type PlotState = {
 	brush: [number, number] | null;
 	domainX: Domain;
 	domainY: Domain;
+	showGridX: boolean;
+	showGridY: boolean;
 	snapX: boolean;
 	snapY: boolean;
 	snapPrecisionX: number;
@@ -33,6 +35,8 @@ const nextId = () => `p_${idCounter++}`;
 
 const DEFAULT_DOMAIN_X: Domain = [-180, 180];
 const DEFAULT_DOMAIN_Y: Domain = [-1, 1];
+const DEFAULT_SHOW_GRID_X = false;
+const DEFAULT_SHOW_GRID_Y = false;
 const DEFAULT_SNAP_X = false;
 const DEFAULT_SNAP_Y = false;
 const DEFAULT_SNAP_PRECISION_X = 1;
@@ -64,6 +68,8 @@ const makePlot = (name: string): PlotState => ({
 	brush: null,
 	domainX: DEFAULT_DOMAIN_X,
 	domainY: DEFAULT_DOMAIN_Y,
+	showGridX: DEFAULT_SHOW_GRID_X,
+	showGridY: DEFAULT_SHOW_GRID_Y,
 	snapX: DEFAULT_SNAP_X,
 	snapY: DEFAULT_SNAP_Y,
 	snapPrecisionX: DEFAULT_SNAP_PRECISION_X,
