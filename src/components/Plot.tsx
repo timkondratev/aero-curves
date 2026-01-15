@@ -6,7 +6,6 @@ import {
 	addPoint,
 	clampValue,
 	removePoint,
-	sortPoints,
 } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
 
@@ -201,7 +200,7 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 		const dx = xScale.invert(x) - xScale.invert(dragState.current.startX);
 		const dy = yScale.invert(y) - yScale.invert(dragState.current.startY);
 		const idsToMove = new Set(selection.size ? selection : Array.from(dragState.current.points.keys()));
-		const sorted = sortPoints(plotRef.current.points);
+		const sorted = [...plotRef.current.points].sort((a, b) => a.x - b.x);
 		const indexById = new Map(sorted.map((p, idx) => [p.id, idx] as const));
 
 		const nextPoints = plotRef.current.points.map(p => {
@@ -231,7 +230,7 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 			const ny = snapY(clampedY);
 			return { ...p, x: nx, y: ny };
 		});
-		setPointsTransient(sortPoints(nextPoints));
+		setPointsTransient(nextPoints);
 	};
 
 	const endDrag = (e: PointerEvent<SVGCircleElement>) => {

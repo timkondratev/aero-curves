@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import type { PlotState, PointId } from "../state/reducer";
-import { clampValue, sortPoints } from "../utils/geometry";
+import { clampValue } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
 
 type Props = {
@@ -109,15 +109,24 @@ export function SideBar({ plot, onChange }: Props) {
 
         if (selectedPoints.length === 1) {
             const id = selectedPoints[0].id;
-            const nextPoints = sortPoints(
-                plot.points.map(p => {
-                    if (p.id !== id) return p;
-                    const snapped = snapValue(val, snapEnabled, precision);
-                    return axis === "x"
-                        ? { ...p, x: clampValue(snapped, domain) }
-                        : { ...p, y: clampValue(snapped, domain) };
-                })
-            );
+
+            if (axis === "x") {
+                const sorted = [...plot.points].sort((a, b) => a.x - b.x);
+                const sortedIdx = sorted.findIndex(p => p.id === id);
+                const left = sortedIdx > 0 ? sorted[sortedIdx - 1].x : domain[0];
+                const right = sortedIdx < sorted.length - 1 ? sorted[sortedIdx + 1].x : domain[1];
+                const snapped = snapValue(val, snapEnabled, precision);
+                const bounded = clampValue(snapped, [left, right]);
+                const nextPoints = plot.points.map(p => (p.id === id ? { ...p, x: bounded } : p));
+                onChange({ ...plot, points: nextPoints });
+                return;
+            }
+
+            const nextPoints = plot.points.map(p => {
+                if (p.id !== id) return p;
+                const snapped = snapValue(val, snapEnabled, precision);
+                return { ...p, y: clampValue(snapped, domain) };
+            });
             onChange({ ...plot, points: nextPoints });
             return;
         }
@@ -126,15 +135,40 @@ export function SideBar({ plot, onChange }: Props) {
         const currentCenter = center;
         if (!currentCenter) return;
         const delta = val - (axis === "x" ? currentCenter.x : currentCenter.y);
-        const nextPoints = sortPoints(
-            plot.points.map(p => {
+
+        if (axis === "x") {
+            const sorted = [...plot.points].sort((a, b) => a.x - b.x);
+            let firstIdx = -1;
+            let lastIdx = -1;
+            for (let i = 0; i < sorted.length; i++) {
+                if (!selection.has(sorted[i].id)) continue;
+                if (firstIdx === -1) firstIdx = i;
+                lastIdx = i;
+            }
+            const leftNeighbor = firstIdx > 0 ? sorted[firstIdx - 1].x : domain[0];
+            const rightNeighbor = lastIdx >= 0 && lastIdx < sorted.length - 1 ? sorted[lastIdx + 1].x : domain[1];
+            const minX = Math.min(...selectedPoints.map(p => p.x));
+            const maxX = Math.max(...selectedPoints.map(p => p.x));
+            const minDelta = leftNeighbor - minX;
+            const maxDelta = rightNeighbor - maxX;
+            const clampedDelta = clampValue(delta, [minDelta, maxDelta]);
+
+            const nextPoints = plot.points.map(p => {
                 if (!selection.has(p.id)) return p;
-                const shifted = axis === "x" ? p.x + delta : p.y + delta;
+                const shifted = p.x + clampedDelta;
                 const snapped = snapValue(shifted, snapEnabled, precision);
-                if (axis === "x") return { ...p, x: clampValue(snapped, domain) };
-                return { ...p, y: clampValue(snapped, domain) };
-            })
-        );
+                return { ...p, x: clampValue(snapped, domain) };
+            });
+            onChange({ ...plot, points: nextPoints });
+            return;
+        }
+
+        const nextPoints = plot.points.map(p => {
+            if (!selection.has(p.id)) return p;
+            const shifted = p.y + delta;
+            const snapped = snapValue(shifted, snapEnabled, precision);
+            return { ...p, y: clampValue(snapped, domain) };
+        });
         onChange({ ...plot, points: nextPoints });
     };
 
