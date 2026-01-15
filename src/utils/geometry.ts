@@ -126,8 +126,14 @@ export const duplicateSelectionRight = (
 
 	const minX = Math.min(...selected.map(p => p.x));
 	const maxX = Math.max(...selected.map(p => p.x));
+	const anchor = selected[selected.length - 1]; // rightmost in sorted order
 
-	const duplicated = selected.map(p => ({ id: makeId(), x: maxX + (p.x - minX), y: p.y }));
+	const duplicatedRaw = selected.map(p => ({ id: makeId(), x: maxX + (p.x - minX), y: p.y }));
+	const duplicated = duplicatedRaw.filter((p, idx) => {
+		// If the first duplicate overlaps anchor, drop it
+		if (idx === 0 && p.x === anchor.x && p.y === anchor.y) return false;
+		return true;
+	});
 	const minNewX = Math.min(...duplicated.map(p => p.x));
 	const maxNewX = Math.max(...duplicated.map(p => p.x));
 	const retained = removePointsInRange(points, minNewX, maxNewX, selection);
@@ -148,8 +154,14 @@ export const duplicateSelectionLeft = (
 
 	const minX = Math.min(...selected.map(p => p.x));
 	const maxX = Math.max(...selected.map(p => p.x));
+	const anchor = selected[0]; // leftmost in sorted order
 
-	const duplicated = selected.map(p => ({ id: makeId(), x: minX - (maxX - p.x), y: p.y }));
+	const duplicatedRaw = selected.map(p => ({ id: makeId(), x: minX - (maxX - p.x), y: p.y }));
+	const duplicated = duplicatedRaw.filter((p, idx) => {
+		// If the first duplicate overlaps anchor, drop it
+		if (idx === 0 && p.x === anchor.x && p.y === anchor.y) return false;
+		return true;
+	});
 	const minNewX = Math.min(...duplicated.map(p => p.x));
 	const maxNewX = Math.max(...duplicated.map(p => p.x));
 	const retained = removePointsInRange(points, minNewX, maxNewX, selection);
