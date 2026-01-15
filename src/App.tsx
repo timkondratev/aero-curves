@@ -91,6 +91,15 @@ function App_() {
 		}));
 	};
 
+	const handleDeleteSelection = () => {
+		updateActivePlot(p => {
+			if (!p.selection.length) return p;
+			const selectionSet = new Set(p.selection);
+			const nextPoints = p.points.filter(pt => !selectionSet.has(pt.id));
+			return { ...p, points: nextPoints, selection: [] };
+		});
+	};
+
 	const handleCopy = () => {
 		if (!activePlot || !activePlot.selection.length) return;
 		const selectedSet = new Set(activePlot.selection);
@@ -133,14 +142,14 @@ function App_() {
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			const isModifier = e.metaKey || e.ctrlKey;
 			const isFormField = e.target instanceof HTMLElement &&
 				(e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable);
-			if (!isModifier || isFormField) return;
+			if (isFormField) return;
 
 			const key = e.key.toLowerCase();
+			const isModifier = e.metaKey || e.ctrlKey;
 
-			if (key === "d") {
+			if (isModifier && key === "d") {
 				if (e.shiftKey) {
 					e.preventDefault();
 					handleDuplicateLeft();
@@ -152,22 +161,28 @@ function App_() {
 				return;
 			}
 
-			if (key === "c") {
+			if (isModifier && key === "c") {
 				e.preventDefault();
 				handleCopy();
 				return;
 			}
 
-			if (key === "v") {
+			if (isModifier && key === "v") {
 				e.preventDefault();
 				void handlePaste();
+				return;
+			}
+
+			if (!isModifier && (key === "delete" || key === "backspace")) {
+				e.preventDefault();
+				handleDeleteSelection();
 				return;
 			}
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [handleDuplicateLeft, handleDuplicateRight, handleCopy, handlePaste]);
+	}, [handleDuplicateLeft, handleDuplicateRight, handleCopy, handlePaste, handleDeleteSelection]);
 
 	return (
 		<div className="app-shell">
