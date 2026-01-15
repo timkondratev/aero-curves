@@ -28,7 +28,8 @@ export type Action =
 	| { type: "plot/add" }
 	| { type: "plot/remove"; id: PlotId }
 	| { type: "plot/replace"; plot: PlotState }
-	| { type: "app/set-active"; id: PlotId | null };
+	| { type: "app/set-active"; id: PlotId | null }
+	| { type: "app/replace-state"; state: AppState };
 
 let idCounter = 1;
 const nextId = () => `p_${idCounter++}`;
@@ -103,6 +104,9 @@ export const reducer = (state: AppState, action: Action): AppState => {
 		}
 		case "app/set-active": {
 			return { ...state, activePlotId: action.id };
+		}
+		case "app/replace-state": {
+			return action.state;
 		}
 		default:
 			return state;

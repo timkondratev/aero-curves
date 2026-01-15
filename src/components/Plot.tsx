@@ -23,10 +23,11 @@ type Props = {
 	active: boolean;
 	onActivate: () => void;
 	onChange: (plot: PlotState) => void;
+	onChangeTransient: (plot: PlotState) => void;
 	onRemove?: () => void;
 };
 
-export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
+export function Plot({ plot, active, onActivate, onChange, onChangeTransient, onRemove }: Props) {
 	const plotRef = useRef(plot);
 	const frameRef = useRef<HTMLDivElement | null>(null);
 	const [frameWidth, setFrameWidth] = useState(720);
@@ -115,9 +116,16 @@ export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
 		onChange(next);
 	};
 
-	const setSelection = (ids: PointId[]) => updatePlot({ selection: ids });
-	const setBrush = (brush: [number, number] | null) => updatePlot({ brush });
+	const updatePlotTransient = (partial: Partial<PlotState>) => {
+		const next = { ...plotRef.current, ...partial } as PlotState;
+		plotRef.current = next;
+		onChangeTransient(next);
+	};
+
+	const setSelection = (ids: PointId[]) => updatePlotTransient({ selection: ids });
+	const setBrush = (brush: [number, number] | null) => updatePlotTransient({ brush });
 	const setPoints = (pts: PlotState["points"]) => updatePlot({ points: pts });
+	const setPointsTransient = (pts: PlotState["points"]) => updatePlotTransient({ points: pts });
 
 	const snapX = (value: number) => snapValue(value, plot.snapX, plot.snapPrecisionX);
 	const snapY = (value: number) => snapValue(value, plot.snapY, plot.snapPrecisionY);
@@ -218,11 +226,15 @@ export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
 			const ny = snapY(clampedY);
 			return { ...p, x: nx, y: ny };
 		});
-		setPoints(sortPoints(nextPoints));
+		setPointsTransient(sortPoints(nextPoints));
 	};
 
 	const endDrag = (e: PointerEvent<SVGCircleElement>) => {
 		e.currentTarget.releasePointerCapture(e.pointerId);
+		if (dragState.current) {
+			// Commit the dragged points to history once per drag
+			onChange(plotRef.current);
+		}
 		dragState.current = null;
 	};
 

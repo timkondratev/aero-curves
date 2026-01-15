@@ -3,7 +3,7 @@ import { Plot } from "./components/Plot";
 import { SideBar } from "./components/SideBar";
 import { ToolBar } from "./components/ToolBar";
 import { makeInitialState, reducer } from "./state/reducer";
-import type { PlotState, PlotId } from "./state/reducer";
+import type { PlotState, PlotId, AppState } from "./state/reducer";
 import {
 	flipSelectionX,
 	flipSelectionY,
@@ -17,9 +17,21 @@ import {
 import { parsePointsFromClipboard, serializePointsForClipboard } from "./utils/clipboard";
 import "./styles/globals.css";
 
+const HISTORY_LIMIT = 100;
+
+const cloneState = (state: AppState): AppState => {
+	if (typeof structuredClone === "function") {
+		return structuredClone(state);
+	}
+	return JSON.parse(JSON.stringify(state)) as AppState;
+};
+
 function App_() {
 	const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
 	const lastCopiedRef = useRef<{ x: number; y: number }[] | null>(null);
+	const pastRef = useRef<AppState[]>([]);
+	const futureRef = useRef<AppState[]>([]);
+	const historyBaseRef = useRef<AppState | null>(null);
 
 	const activePlot = useMemo(
 		() => state.plots.find(p => p.id === state.activePlotId) ?? null,
@@ -27,15 +39,34 @@ function App_() {
 	);
 
 	const replacePlot = (plot: PlotState) => dispatch({ type: "plot/replace", plot });
+	const replacePlotNoHistory = (plot: PlotState) => dispatch({ type: "plot/replace", plot });
+
+	const recordChange = (prev: AppState) => {
+		const stack = pastRef.current.concat(cloneState(prev));
+		const trimmed = stack.length > HISTORY_LIMIT ? stack.slice(stack.length - HISTORY_LIMIT) : stack;
+		pastRef.current = trimmed;
+		futureRef.current = [];
+	};
+
+	const applyChange = (mutate: () => void) => {
+		const snapshot = historyBaseRef.current ?? cloneState(state);
+		mutate();
+		recordChange(snapshot);
+		historyBaseRef.current = null;
+	};
 
 	const handleSetActive = (id: PlotId | null) => dispatch({ type: "app/set-active", id });
-	const handleAddPlot = () => dispatch({ type: "plot/add" });
-	const handleRemovePlot = (id: PlotId) => dispatch({ type: "plot/remove", id });
-	const handleReplacePlot = (plot: PlotState) => replacePlot(plot);
+	const handleAddPlot = () => applyChange(() => dispatch({ type: "plot/add" }));
+	const handleRemovePlot = (id: PlotId) => applyChange(() => dispatch({ type: "plot/remove", id }));
+	const handleReplacePlot = (plot: PlotState) => applyChange(() => replacePlot(plot));
+	const handleReplacePlotTransient = (plot: PlotState) => {
+		if (!historyBaseRef.current) historyBaseRef.current = cloneState(state);
+		replacePlotNoHistory(plot);
+	};
 
 	const updateActivePlot = (updater: (p: PlotState) => PlotState) => {
 		if (!activePlot) return;
-		replacePlot(updater(activePlot));
+		applyChange(() => replacePlot(updater(activePlot)));
 	};
 
 	const selectionSize = activePlot?.selection.length ?? 0;
@@ -140,6 +171,22 @@ function App_() {
 		}));
 	};
 
+	const handleUndo = () => {
+		const prev = pastRef.current.pop();
+		if (!prev) return;
+		futureRef.current = futureRef.current.concat(cloneState(state));
+		dispatch({ type: "app/replace-state", state: prev });
+		historyBaseRef.current = null;
+	};
+
+	const handleRedo = () => {
+		const next = futureRef.current.pop();
+		if (!next) return;
+		pastRef.current = pastRef.current.concat(cloneState(state));
+		dispatch({ type: "app/replace-state", state: next });
+		historyBaseRef.current = null;
+	};
+
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			const isFormField = e.target instanceof HTMLElement &&
@@ -173,6 +220,16 @@ function App_() {
 				return;
 			}
 
+			if (isModifier && key === "z") {
+				e.preventDefault();
+				if (e.shiftKey) {
+					handleRedo();
+				} else {
+					handleUndo();
+				}
+				return;
+			}
+
 			if (!isModifier && (key === "delete" || key === "backspace")) {
 				e.preventDefault();
 				handleDeleteSelection();
@@ -182,7 +239,7 @@ function App_() {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [handleDuplicateLeft, handleDuplicateRight, handleCopy, handlePaste, handleDeleteSelection]);
+	}, [handleDuplicateLeft, handleDuplicateRight, handleCopy, handlePaste, handleDeleteSelection, handleUndo, handleRedo]);
 
 	return (
 		<div className="app-shell">
@@ -211,6 +268,7 @@ function App_() {
 							active={plot.id === state.activePlotId}
 							onActivate={() => handleSetActive(plot.id)}
 							onChange={handleReplacePlot}
+							onChangeTransient={handleReplacePlotTransient}
 							onRemove={() => handleRemovePlot(plot.id)}
 						/>
 					))}
