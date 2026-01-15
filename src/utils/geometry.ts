@@ -7,6 +7,10 @@ export const sortPoints = (pts: Point[]) => [...pts].sort((a, b) => a.x - b.x);
 
 export const clampValue = (v: number, domain: [number, number]) => Math.min(domain[1], Math.max(domain[0], v));
 
+const removePointsInRange = (points: Point[], minX: number, maxX: number, protectedIds: Set<PointId> = new Set()) => {
+	return points.filter(p => protectedIds.has(p.id) || p.x < minX || p.x > maxX);
+};
+
 export const flipSelectionY = (
 	points: Point[],
 	selection: Set<PointId>,
@@ -73,25 +77,16 @@ export const mirrorSelectionRight = (
 	if (selected.length < 2) return { points, selection: Array.from(selection) };
 
 	const maxX = Math.max(...selected.map(p => p.x));
-	const selectedIds = new Set(selected.map(p => p.id));
-	const selectedIndices = sorted.reduce<number[]>((acc, p, idx) => {
-		if (selectedIds.has(p.id)) acc.push(idx);
-		return acc;
-	}, []);
-	const lastIdx = selectedIndices[selectedIndices.length - 1];
-	const mirrorCount = selected.length - 1; // exclude anchor at maxX
 
 	// Mirror all but the anchor, nearest-to-anchor first for ascending order
 	const mirrored = selected
 		.slice(0, -1)
 		.reverse()
 		.map(p => ({ id: makeId(), x: maxX + (maxX - p.x), y: p.y }));
-
-	const rightRemoveStart = lastIdx + 1;
-	const rightRemoveEnd = Math.min(sorted.length, rightRemoveStart + mirrorCount);
-	const leftKeep = sorted.slice(0, rightRemoveStart);
-	const rightKeep = sorted.slice(rightRemoveEnd);
-	const nextPoints = sortPoints([...leftKeep, ...mirrored, ...rightKeep]);
+	const minNewX = Math.min(...mirrored.map(p => p.x));
+	const maxNewX = Math.max(...mirrored.map(p => p.x));
+	const retained = removePointsInRange(points, minNewX, maxNewX, selection);
+	const nextPoints = sortPoints([...retained, ...mirrored]);
 	const newSelection = [selected[selected.length - 1].id, ...mirrored.map(m => m.id)];
 	return { points: nextPoints, selection: newSelection };
 };
@@ -106,24 +101,16 @@ export const mirrorSelectionLeft = (
 	if (selected.length < 2) return { points, selection: Array.from(selection) };
 
 	const minX = Math.min(...selected.map(p => p.x));
-	const selectedIds = new Set(selected.map(p => p.id));
-	const selectedIndices = sorted.reduce<number[]>((acc, p, idx) => {
-		if (selectedIds.has(p.id)) acc.push(idx);
-		return acc;
-	}, []);
-	const firstIdx = selectedIndices[0];
-	const mirrorCount = selected.length - 1; // exclude anchor at minX
 
 	// Mirror all but the anchor, farthest-from-anchor first then reverse to keep ascending order
 	const mirrored = selected
 		.slice(1)
 		.map(p => ({ id: makeId(), x: minX - (p.x - minX), y: p.y }))
 		.reverse();
-
-	const leftRemoveEnd = Math.max(0, firstIdx - mirrorCount);
-	const leftKeep = sorted.slice(0, leftRemoveEnd);
-	const rightKeep = sorted.slice(firstIdx);
-	const nextPoints = sortPoints([...leftKeep, ...mirrored, ...rightKeep]);
+	const minNewX = Math.min(...mirrored.map(p => p.x));
+	const maxNewX = Math.max(...mirrored.map(p => p.x));
+	const retained = removePointsInRange(points, minNewX, maxNewX, selection);
+	const nextPoints = sortPoints([...retained, ...mirrored]);
 	const newSelection = [selected[0].id, ...mirrored.map(m => m.id)];
 	return { points: nextPoints, selection: newSelection };
 };
@@ -137,26 +124,15 @@ export const duplicateSelectionRight = (
 	const selected = sorted.filter(p => selection.has(p.id));
 	if (!selected.length) return { points, selection: Array.from(selection) };
 
-	const selectedIds = new Set(selected.map(p => p.id));
-	const selectedIndices = sorted.reduce<number[]>((acc, p, idx) => {
-		if (selectedIds.has(p.id)) acc.push(idx);
-		return acc;
-	}, []);
-	const firstIdx = selectedIndices[0];
-	const lastIdx = selectedIndices[selectedIndices.length - 1];
-	const spanCount = lastIdx - firstIdx;
-
 	const minX = Math.min(...selected.map(p => p.x));
 	const maxX = Math.max(...selected.map(p => p.x));
 
 	const duplicated = selected.map(p => ({ id: makeId(), x: maxX + (p.x - minX), y: p.y }));
+	const minNewX = Math.min(...duplicated.map(p => p.x));
+	const maxNewX = Math.max(...duplicated.map(p => p.x));
+	const retained = removePointsInRange(points, minNewX, maxNewX, selection);
 
-	const rightRemoveStart = lastIdx + 1;
-	const rightRemoveEnd = Math.min(sorted.length, lastIdx + 1 + spanCount);
-	const leftKeep = sorted.slice(0, rightRemoveStart);
-	const rightKeep = sorted.slice(rightRemoveEnd);
-
-	const nextPoints = sortPoints([...leftKeep, ...duplicated, ...rightKeep]);
+	const nextPoints = sortPoints([...retained, ...duplicated]);
 	const newSelection = duplicated.map(p => p.id);
 	return { points: nextPoints, selection: newSelection };
 };
@@ -170,25 +146,53 @@ export const duplicateSelectionLeft = (
 	const selected = sorted.filter(p => selection.has(p.id));
 	if (!selected.length) return { points, selection: Array.from(selection) };
 
-	const selectedIds = new Set(selected.map(p => p.id));
-	const selectedIndices = sorted.reduce<number[]>((acc, p, idx) => {
-		if (selectedIds.has(p.id)) acc.push(idx);
-		return acc;
-	}, []);
-	const firstIdx = selectedIndices[0];
-	const lastIdx = selectedIndices[selectedIndices.length - 1];
-	const spanCount = lastIdx - firstIdx;
-
 	const minX = Math.min(...selected.map(p => p.x));
 	const maxX = Math.max(...selected.map(p => p.x));
 
 	const duplicated = selected.map(p => ({ id: makeId(), x: minX - (maxX - p.x), y: p.y }));
+	const minNewX = Math.min(...duplicated.map(p => p.x));
+	const maxNewX = Math.max(...duplicated.map(p => p.x));
+	const retained = removePointsInRange(points, minNewX, maxNewX, selection);
 
-	const leftRemoveEnd = Math.max(0, firstIdx - spanCount);
-	const leftKeep = sorted.slice(0, leftRemoveEnd);
-	const rightKeep = sorted.slice(firstIdx);
-
-	const nextPoints = sortPoints([...leftKeep, ...duplicated, ...rightKeep]);
+	const nextPoints = sortPoints([...retained, ...duplicated]);
 	const newSelection = duplicated.map(p => p.id);
+	return { points: nextPoints, selection: newSelection };
+};
+
+type PlainPoint = { x: number; y: number };
+
+export const replaceSelectionWithPoints = (
+	points: Point[],
+	selection: Set<PointId>,
+	incoming: PlainPoint[],
+	domainX: [number, number],
+	domainY: [number, number],
+	makeId: () => PointId
+): { points: Point[]; selection: PointId[] } => {
+	if (!incoming.length || !selection.size) {
+		return { points, selection: Array.from(selection) };
+	}
+
+	const selectedPoints = points.filter(p => selection.has(p.id));
+	if (!selectedPoints.length) {
+		return { points, selection: Array.from(selection) };
+	}
+
+	const anchorX = Math.min(...selectedPoints.map(p => p.x));
+	const minIncomingX = Math.min(...incoming.map(p => p.x));
+	const shiftX = anchorX - minIncomingX;
+
+	const newPoints: Point[] = incoming.map(p => ({
+		id: makeId(),
+		x: clampValue(p.x + shiftX, domainX),
+		y: clampValue(p.y, domainY),
+	}));
+
+	const minNewX = Math.min(...newPoints.map(p => p.x));
+	const maxNewX = Math.max(...newPoints.map(p => p.x));
+	const retained = removePointsInRange(points, minNewX, maxNewX);
+
+	const nextPoints = sortPoints([...retained, ...newPoints]);
+	const newSelection = newPoints.map(p => p.id);
 	return { points: nextPoints, selection: newSelection };
 };

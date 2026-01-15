@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import { Plot } from "./components/Plot";
 import { SideBar } from "./components/SideBar";
 import { ToolBar } from "./components/ToolBar";
@@ -12,11 +12,14 @@ import {
 	duplicateSelectionLeft,
 	duplicateSelectionRight,
 	trimToSelection,
+	replaceSelectionWithPoints,
 } from "./utils/geometry";
+import { parsePointsFromClipboard, serializePointsForClipboard } from "./utils/clipboard";
 import "./styles/globals.css";
 
 function App_() {
 	const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
+	const lastCopiedRef = useRef<{ x: number; y: number }[] | null>(null);
 
 	const activePlot = useMemo(
 		() => state.plots.find(p => p.id === state.activePlotId) ?? null,
@@ -88,6 +91,46 @@ function App_() {
 		}));
 	};
 
+	const handleCopy = () => {
+		if (!activePlot || !activePlot.selection.length) return;
+		const selectedSet = new Set(activePlot.selection);
+		const selectedPoints = activePlot.points
+			.filter(p => selectedSet.has(p.id))
+			.map(p => ({ x: p.x, y: p.y }));
+		if (!selectedPoints.length) return;
+
+		const payload = serializePointsForClipboard(selectedPoints);
+		lastCopiedRef.current = selectedPoints;
+		if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+			navigator.clipboard.writeText(payload).catch(() => {
+				// Ignore clipboard write failures
+			});
+		}
+	};
+
+	const handlePaste = async () => {
+		if (!activePlot || !activePlot.selection.length) return;
+		let incoming = lastCopiedRef.current;
+		if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
+			try {
+				const text = await navigator.clipboard.readText();
+				const parsed = parsePointsFromClipboard(text);
+				if (parsed && parsed.length) {
+					incoming = parsed;
+				}
+			} catch (err) {
+				// Ignore clipboard read failures and fall back to in-memory copy
+			}
+		}
+
+		if (!incoming || !incoming.length) return;
+
+		updateActivePlot(p => ({
+			...p,
+			...replaceSelectionWithPoints(p.points, new Set(p.selection), incoming!, p.domainX, p.domainY, () => crypto.randomUUID()),
+		}));
+	};
+
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			const isModifier = e.metaKey || e.ctrlKey;
@@ -96,21 +139,35 @@ function App_() {
 			if (!isModifier || isFormField) return;
 
 			const key = e.key.toLowerCase();
-			if (key !== "d") return;
 
-			if (e.shiftKey) {
+			if (key === "d") {
+				if (e.shiftKey) {
+					e.preventDefault();
+					handleDuplicateLeft();
+					return;
+				}
+
 				e.preventDefault();
-				handleDuplicateLeft();
+				handleDuplicateRight();
 				return;
 			}
 
-			e.preventDefault();
-			handleDuplicateRight();
+			if (key === "c") {
+				e.preventDefault();
+				handleCopy();
+				return;
+			}
+
+			if (key === "v") {
+				e.preventDefault();
+				void handlePaste();
+				return;
+			}
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [handleDuplicateLeft, handleDuplicateRight]);
+	}, [handleDuplicateLeft, handleDuplicateRight, handleCopy, handlePaste]);
 
 	return (
 		<div className="app-shell">
@@ -125,6 +182,8 @@ function App_() {
 					onTrim={handleTrim}
 					onDuplicateLeft={handleDuplicateLeft}
 					onDuplicateRight={handleDuplicateRight}
+					onCopy={handleCopy}
+					onPaste={handlePaste}
 					canFlip={canFlip}
 					canMirror={canMirror}
 				/>
