@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import type { PlotState, PointId } from "../state/reducer";
 import { clampValue, sortPoints } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
@@ -13,9 +13,12 @@ export function SideBar({ plot, onChange }: Props) {
         return <div className="plot-meta">Select a plot to edit.</div>;
     }
 
-    const selection = new Set<PointId>(plot.selection);
-    const selectedPoints = plot.points.filter(p => selection.has(p.id));
-    const center = (() => {
+    const selection = useMemo(() => new Set<PointId>(plot.selection), [plot.selection]);
+    const selectedPoints = useMemo(
+        () => plot.points.filter(p => selection.has(p.id)),
+        [plot.points, selection]
+    );
+    const center = useMemo(() => {
         if (!selectedPoints.length) return null;
         if (selectedPoints.length === 1) return { x: selectedPoints[0].x, y: selectedPoints[0].y };
         const xs = selectedPoints.map(p => p.x);
@@ -24,7 +27,7 @@ export function SideBar({ plot, onChange }: Props) {
             x: (Math.min(...xs) + Math.max(...xs)) / 2,
             y: (Math.min(...ys) + Math.max(...ys)) / 2,
         };
-    })();
+    }, [selectedPoints]);
 
     const [nameDraft, setNameDraft] = useState(plot.name);
     const [coordDraft, setCoordDraft] = useState<{ x: string; y: string }>({ x: center ? String(center.x) : "", y: center ? String(center.y) : "" });
@@ -56,7 +59,7 @@ export function SideBar({ plot, onChange }: Props) {
             return;
         }
         setCoordDraft({ x: String(center.x), y: String(center.y) });
-    }, [center, selectedPoints.length]);
+    }, [center?.x, center?.y, selectedPoints.length]);
 
     const commitName = () => {
         if (nameDraft === plot.name) return;
