@@ -46,8 +46,7 @@
 
 .sidebar-container {
 	flex: 0 0 auto;
-	width: max-content;
-	max-width: 400px;
+	max-width: 520px;
 	min-width: 260px;
 	height: calc(100vh - 24px);
 	max-height: calc(100vh - 24px);
@@ -59,6 +58,17 @@
 	overflow: auto;
 	position: sticky;
 	top: var(--space-3);
+}
+
+.sidebar-drag-handle {
+	position: absolute;
+	left: -8px;
+	top: 0;
+	width: 26px;
+	height: 100%;
+	cursor: col-resize;
+	background: transparent;
+	user-select: none;
 }
 
 .toolbar {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Plot } from "./components/Plot";
 import { SideBar } from "./components/SideBar";
 import { ToolBar } from "./components/ToolBar";
@@ -18,6 +18,8 @@ import { parsePointsFromClipboard, serializePointsForClipboard } from "./utils/c
 import "./styles/globals.css";
 
 const HISTORY_LIMIT = 100;
+const MIN_SIDEBAR_WIDTH = 260;
+const MAX_SIDEBAR_WIDTH = 520;
 
 const cloneState = (state: AppState): AppState => {
 	if (typeof structuredClone === "function") {
@@ -28,10 +30,12 @@ const cloneState = (state: AppState): AppState => {
 
 function App_() {
 	const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
+	const [sidebarWidth, setSidebarWidth] = useState(320);
 	const lastCopiedRef = useRef<{ x: number; y: number }[] | null>(null);
 	const pastRef = useRef<AppState[]>([]);
 	const futureRef = useRef<AppState[]>([]);
 	const historyBaseRef = useRef<AppState | null>(null);
+	const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
 	const activePlot = useMemo(
 		() => state.plots.find(p => p.id === state.activePlotId) ?? null,
@@ -187,6 +191,29 @@ function App_() {
 		historyBaseRef.current = null;
 	};
 
+	const handleSidebarResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
+		e.preventDefault();
+		sidebarDragRef.current = { startX: e.clientX, startWidth: sidebarWidth };
+		const onMove = (ev: MouseEvent) => {
+			if (!sidebarDragRef.current) return;
+			const delta = ev.clientX - sidebarDragRef.current.startX;
+			const nextWidth = Math.min(
+				MAX_SIDEBAR_WIDTH,
+				Math.max(MIN_SIDEBAR_WIDTH, sidebarDragRef.current.startWidth - delta)
+			);
+			setSidebarWidth(nextWidth);
+		};
+
+		const onUp = () => {
+			sidebarDragRef.current = null;
+			window.removeEventListener("mousemove", onMove);
+			window.removeEventListener("mouseup", onUp);
+		};
+
+		window.addEventListener("mousemove", onMove);
+		window.addEventListener("mouseup", onUp);
+	};
+
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			const isFormField = e.target instanceof HTMLElement &&
@@ -275,7 +302,14 @@ function App_() {
 				</div>
 			</div>
 
-			<div className="sidebar-container">
+			<div className="sidebar-container" style={{ width: sidebarWidth }}>
+				<div
+					className="sidebar-drag-handle"
+					onMouseDown={handleSidebarResizeStart}
+					role="separator"
+					aria-orientation="vertical"
+					aria-label="Resize sidebar"
+				/>
 				<SideBar plot={activePlot} onChange={handleReplacePlot} />
 			</div>
 		</div>
