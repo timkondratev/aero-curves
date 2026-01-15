@@ -1,4 +1,4 @@
-import { useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import { Plot } from "./components/Plot";
 import { SideBar } from "./components/SideBar";
 import { ToolBar } from "./components/ToolBar";
@@ -87,6 +87,30 @@ function App_() {
 			points: trimToSelection(p.points, new Set(p.selection)),
 		}));
 	};
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			const isModifier = e.metaKey || e.ctrlKey;
+			const isFormField = e.target instanceof HTMLElement &&
+				(e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable);
+			if (!isModifier || isFormField) return;
+
+			const key = e.key.toLowerCase();
+			if (key !== "d") return;
+
+			if (e.shiftKey) {
+				e.preventDefault();
+				handleDuplicateLeft();
+				return;
+			}
+
+			e.preventDefault();
+			handleDuplicateRight();
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [handleDuplicateLeft, handleDuplicateRight]);
 
 	return (
 		<div className="app-shell">
