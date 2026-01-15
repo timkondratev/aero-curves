@@ -96,72 +96,114 @@ export function SideBar({ plot, onChange }: Props) {
 
 	return (
 		<div className="sidebar-form">
-			<label className="field">
-				Name
-				<input value={plot.name} onChange={handleNameChange} />
-			</label>
-
-			<label className="field">
-				X
-				<input
-					type="number"
-					value={center ? center.x : ""}
-					onChange={handleCoordChange("x")}
-					disabled={!center}
-				/>
-			</label>
-			<label className="field">
-				Y
-				<input
-					type="number"
-					value={center ? center.y : ""}
-					onChange={handleCoordChange("y")}
-					disabled={!center}
-				/>
-			</label>
-
-			<div className="field-grid">
-				<label className="field">
-					X min
-					<input type="number" value={plot.domainX[0]} onChange={handleDomainChange("x", 0)} />
-				</label>
-				<label className="field">
-					X max
-					<input type="number" value={plot.domainX[1]} onChange={handleDomainChange("x", 1)} />
-				</label>
-				<label className="field">
-					Y min
-					<input type="number" value={plot.domainY[0]} onChange={handleDomainChange("y", 0)} />
-				</label>
-				<label className="field">
-					Y max
-					<input type="number" value={plot.domainY[1]} onChange={handleDomainChange("y", 1)} />
-				</label>
+			<div className="panel-section">
+				<div className="form-row">
+					<div className="row-label">Name</div>
+					<input className="row-control" value={plot.name} onChange={handleNameChange} />
+				</div>
 			</div>
 
-			<label className="checkbox-row">
-				<input type="checkbox" checked={plot.snapX} onChange={handleSnapToggle("x")} /> Snap X
-			</label>
-			<label className="checkbox-row">
-				<input type="checkbox" checked={plot.snapY} onChange={handleSnapToggle("y")} /> Snap Y
-			</label>
+			<div className="panel-section">
+				<div className="form-row">
+					<div className="row-label">X</div>
+					<input
+						className="row-control"
+						type="number"
+						value={center ? center.x : ""}
+						onChange={handleCoordChange("x")}
+						disabled={!center}
+					/>
+				</div>
+				<div className="form-row">
+					<div className="row-label">Y</div>
+					<input
+						className="row-control"
+						type="number"
+						value={center ? center.y : ""}
+						onChange={handleCoordChange("y")}
+						disabled={!center}
+					/>
+				</div>
+			</div>
 
-			<label className="field">
-				Snap precision X
-				<select value={plot.snapPrecisionX} onChange={handleSnapPrecision("x")}>
-					<option value={1}>1</option>
-					<option value={0.1}>0.1</option>
-					<option value={0.01}>0.01</option>
-				</select>
-			</label>
-			<label className="field">
-				Snap precision Y
-				<select value={plot.snapPrecisionY} onChange={handleSnapPrecision("y")}>
-					<option value={1}>1</option>
-					<option value={0.1}>0.1</option>
-					<option value={0.01}>0.01</option>
-				</select>
-			</label>
+			<div className="panel-section">
+				<div className="form-row">
+					<div className="row-label">X min</div>
+					<input
+						className="row-control"
+						type="number"
+						value={plot.domainX[0]}
+						onChange={handleDomainChange("x", 0)}
+					/>
+				</div>
+				<div className="form-row">
+					<div className="row-label">X max</div>
+					<input
+						className="row-control"
+						type="number"
+						value={plot.domainX[1]}
+						onChange={handleDomainChange("x", 1)}
+					/>
+				</div>
+				<div className="form-row">
+					<div className="row-label">Y min</div>
+					<input
+						className="row-control"
+						type="number"
+						value={plot.domainY[0]}
+						onChange={handleDomainChange("y", 0)}
+					/>
+				</div>
+				<div className="form-row">
+					<div className="row-label">Y max</div>
+					<input
+						className="row-control"
+						type="number"
+						value={plot.domainY[1]}
+						onChange={handleDomainChange("y", 1)}
+					/>
+				</div>
+			</div>
+
+			<div className="panel-section">
+				<div className="form-row">
+					<label className="row-label" htmlFor="snap-x">Snap X</label>
+					<input
+						id="snap-x"
+						type="checkbox"
+						checked={plot.snapX}
+						onChange={handleSnapToggle("x")}
+					/>
+				</div>
+				<div className="form-row">
+					<label className="row-label" htmlFor="snap-y">Snap Y</label>
+					<input
+						id="snap-y"
+						type="checkbox"
+						checked={plot.snapY}
+						onChange={handleSnapToggle("y")}
+					/>
+				</div>
+			</div>
+
+			<div className="panel-section">
+				<div className="form-row">
+					<div className="row-label">X Precision</div>
+					<select className="row-control" value={plot.snapPrecisionX} onChange={handleSnapPrecision("x")}>
+						<option value={1}>1</option>
+						<option value={0.1}>0.1</option>
+						<option value={0.01}>0.01</option>
+					</select>
+				</div>
+				<div className="form-row">
+					<div className="row-label">Y Precision</div>
+					<select className="row-control" value={plot.snapPrecisionY} onChange={handleSnapPrecision("y")}>
+						<option value={1}>1</option>
+						<option value={0.1}>0.1</option>
+						<option value={0.01}>0.01</option>
+					</select>
+				</div>
+			</div>
 		</div>
 	);
 }
