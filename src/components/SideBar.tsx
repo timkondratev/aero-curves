@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import type { PlotState, PointId } from "../state/reducer";
 import { clampValue, sortPoints } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
@@ -26,12 +26,46 @@ export function SideBar({ plot, onChange }: Props) {
 		};
 	})();
 
-	const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
-		onChange({ ...plot, name: e.target.value });
+	const [nameDraft, setNameDraft] = useState(plot.name);
+	const [coordDraft, setCoordDraft] = useState<{ x: string; y: string }>({ x: center ? String(center.x) : "", y: center ? String(center.y) : "" });
+	const [domainDraft, setDomainDraft] = useState<{ x0: string; x1: string; y0: string; y1: string }>({
+		x0: String(plot.domainX[0]),
+		x1: String(plot.domainX[1]),
+		y0: String(plot.domainY[0]),
+		y1: String(plot.domainY[1]),
+	});
+	const [stepDraft, setStepDraft] = useState<{ x: string; y: string }>({
+		x: String(plot.snapPrecisionX),
+		y: String(plot.snapPrecisionY),
+	});
+
+	useEffect(() => {
+		setNameDraft(plot.name);
+		setDomainDraft({
+			x0: String(plot.domainX[0]),
+			x1: String(plot.domainX[1]),
+			y0: String(plot.domainY[0]),
+			y1: String(plot.domainY[1]),
+		});
+		setStepDraft({ x: String(plot.snapPrecisionX), y: String(plot.snapPrecisionY) });
+	}, [plot]);
+
+	useEffect(() => {
+		if (!selectedPoints.length || !center) {
+			setCoordDraft({ x: "", y: "" });
+			return;
+		}
+		setCoordDraft({ x: String(center.x), y: String(center.y) });
+	}, [center, selectedPoints.length]);
+
+	const commitName = () => {
+		if (nameDraft === plot.name) return;
+		onChange({ ...plot, name: nameDraft });
 	};
 
-	const handleDomainChange = (axis: "x" | "y", index: 0 | 1) => (e: ChangeEvent<HTMLInputElement>) => {
-		const value = parseFloat(e.target.value);
+	const commitDomain = (axis: "x" | "y", index: 0 | 1) => {
+		const draftVal = axis === "x" ? (index === 0 ? domainDraft.x0 : domainDraft.x1) : index === 0 ? domainDraft.y0 : domainDraft.y1;
+		const value = parseFloat(draftVal);
 		if (Number.isNaN(value)) return;
 		if (axis === "x") {
 			const next: PlotState = { ...plot, domainX: index === 0 ? [value, plot.domainX[1]] : [plot.domainX[0], value] };
@@ -54,16 +88,17 @@ export function SideBar({ plot, onChange }: Props) {
 		onChange(next);
 	};
 
-	const handleSnapPrecision = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
-		const value = parseFloat(e.target.value);
+	const commitSnapPrecision = (axis: "x" | "y") => {
+		const draftVal = axis === "x" ? stepDraft.x : stepDraft.y;
+		const value = parseFloat(draftVal);
 		if (Number.isNaN(value) || value <= 0) return;
-		const next: PlotState =
-			axis === "x" ? { ...plot, snapPrecisionX: value } : { ...plot, snapPrecisionY: value };
+		const next: PlotState = axis === "x" ? { ...plot, snapPrecisionX: value } : { ...plot, snapPrecisionY: value };
 		onChange(next);
 	};
 
-	const handleCoordChange = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
-		const val = parseFloat(e.target.value);
+	const commitCoord = (axis: "x" | "y") => {
+		const draftVal = axis === "x" ? coordDraft.x : coordDraft.y;
+		const val = parseFloat(draftVal);
 		if (!selectedPoints.length || Number.isNaN(val)) return;
 		const snapEnabled = axis === "x" ? plot.snapX : plot.snapY;
 		const precision = axis === "x" ? plot.snapPrecisionX : plot.snapPrecisionY;
@@ -100,6 +135,12 @@ export function SideBar({ plot, onChange }: Props) {
 		onChange({ ...plot, points: nextPoints });
 	};
 
+	const onEnter = (e: KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === "Enter") {
+			e.currentTarget.blur();
+		}
+	};
+
 	return (
 		<div className="sidebar-form">
 			<div className="panel-section">
@@ -110,36 +151,22 @@ export function SideBar({ plot, onChange }: Props) {
 					<input
 						className="row-control"
 						type="number"
-						value={center ? center.x : ""}
-						onChange={handleCoordChange("x")}
+						value={coordDraft.x}
+						onChange={e => setCoordDraft(d => ({ ...d, x: e.target.value }))}
+						onBlur={() => commitCoord("x")}
+						onKeyDown={onEnter}
 						disabled={!center}
 					/>
 					<label className="mini-label">Y</label>
 					<input
 						className="row-control"
 						type="number"
-						value={center ? center.y : ""}
-						onChange={handleCoordChange("y")}
+						value={coordDraft.y}
+						onChange={e => setCoordDraft(d => ({ ...d, y: e.target.value }))}
+						onBlur={() => commitCoord("y")}
+						onKeyDown={onEnter}
 						disabled={!center}
 					/>
-				</div>
-			</div>
-
-			<div className="panel-section">
-				<div className="section-title">GRID</div>
-				<div className="form-row inline-pair">
-					<div className="row-label">Show grid</div>
-					<label className="mini-label" htmlFor="grid-show-x">X</label>
-					<input id="grid-show-x" type="checkbox" checked={plot.showGridX} onChange={handleShowGridToggle("x")} />
-					<label className="mini-label" htmlFor="grid-show-y">Y</label>
-					<input id="grid-show-y" type="checkbox" checked={plot.showGridY} onChange={handleShowGridToggle("y")} />
-				</div>
-				<div className="form-row inline-pair">
-					<div className="row-label">Snap to grid</div>
-					<label className="mini-label" htmlFor="snap-x">X</label>
-					<input id="snap-x" type="checkbox" checked={plot.snapX} onChange={handleSnapToggle("x")} />
-					<label className="mini-label" htmlFor="snap-y">Y</label>
-					<input id="snap-y" type="checkbox" checked={plot.snapY} onChange={handleSnapToggle("y")} />
 				</div>
 				<div className="form-row inline-pair">
 					<div className="row-label">Step</div>
@@ -149,8 +176,10 @@ export function SideBar({ plot, onChange }: Props) {
 						type="number"
 						step="any"
 						min={0.000001}
-						value={plot.snapPrecisionX}
-						onChange={handleSnapPrecision("x")}
+						value={stepDraft.x}
+						onChange={e => setStepDraft(d => ({ ...d, x: e.target.value }))}
+						onBlur={() => commitSnapPrecision("x")}
+						onKeyDown={onEnter}
 					/>
 					<label className="mini-label">Y</label>
 					<input
@@ -158,9 +187,25 @@ export function SideBar({ plot, onChange }: Props) {
 						type="number"
 						step="any"
 						min={0.000001}
-						value={plot.snapPrecisionY}
-						onChange={handleSnapPrecision("y")}
+						value={stepDraft.y}
+						onChange={e => setStepDraft(d => ({ ...d, y: e.target.value }))}
+						onBlur={() => commitSnapPrecision("y")}
+						onKeyDown={onEnter}
 					/>
+				</div>
+				<div className="form-row inline-pair">
+					<div className="row-label">Snap</div>
+					<label className="mini-label" htmlFor="snap-x">X</label>
+					<input id="snap-x" type="checkbox" checked={plot.snapX} onChange={handleSnapToggle("x")} />
+					<label className="mini-label" htmlFor="snap-y">Y</label>
+					<input id="snap-y" type="checkbox" checked={plot.snapY} onChange={handleSnapToggle("y")} />
+				</div>
+				<div className="form-row inline-pair">
+					<div className="row-label">Show grid</div>
+					<label className="mini-label" htmlFor="grid-x">X</label>
+					<input id="grid-x" type="checkbox" checked={plot.showGridX} onChange={handleShowGridToggle("x")} />
+					<label className="mini-label" htmlFor="grid-y">Y</label>
+					<input id="grid-y" type="checkbox" checked={plot.showGridY} onChange={handleShowGridToggle("y")} />
 				</div>
 			</div>
 
@@ -168,21 +213,31 @@ export function SideBar({ plot, onChange }: Props) {
 				<div className="section-title">PLOT</div>
 				<div className="form-row">
 					<div className="row-label">Name</div>
-					<input className="row-control" value={plot.name} onChange={handleNameChange} />
+					<input
+						className="row-control"
+						value={nameDraft}
+						onChange={e => setNameDraft(e.target.value)}
+						onBlur={commitName}
+						onKeyDown={onEnter}
+					/>
 				</div>
 				<div className="form-row inline-pair">
 					<div className="row-label">Domain X</div>
 					<input
 						className="row-control"
 						type="number"
-						value={plot.domainX[0]}
-						onChange={handleDomainChange("x", 0)}
+						value={domainDraft.x0}
+						onChange={e => setDomainDraft(d => ({ ...d, x0: e.target.value }))}
+						onBlur={() => commitDomain("x", 0)}
+						onKeyDown={onEnter}
 					/>
 					<input
 						className="row-control"
 						type="number"
-						value={plot.domainX[1]}
-						onChange={handleDomainChange("x", 1)}
+						value={domainDraft.x1}
+						onChange={e => setDomainDraft(d => ({ ...d, x1: e.target.value }))}
+						onBlur={() => commitDomain("x", 1)}
+						onKeyDown={onEnter}
 					/>
 				</div>
 				<div className="form-row inline-pair">
@@ -190,14 +245,18 @@ export function SideBar({ plot, onChange }: Props) {
 					<input
 						className="row-control"
 						type="number"
-						value={plot.domainY[0]}
-						onChange={handleDomainChange("y", 0)}
+						value={domainDraft.y0}
+						onChange={e => setDomainDraft(d => ({ ...d, y0: e.target.value }))}
+						onBlur={() => commitDomain("y", 0)}
+						onKeyDown={onEnter}
 					/>
 					<input
 						className="row-control"
 						type="number"
-						value={plot.domainY[1]}
-						onChange={handleDomainChange("y", 1)}
+						value={domainDraft.y1}
+						onChange={e => setDomainDraft(d => ({ ...d, y1: e.target.value }))}
+						onBlur={() => commitDomain("y", 1)}
+						onKeyDown={onEnter}
 					/>
 				</div>
 			</div>
