@@ -115,6 +115,9 @@
 .plot-frame {
 	position: relative;
 	width: 100%;
+	height: clamp(260px, 45vh, 560px);
+	min-width: 480px;
+	max-width: 100%;
 	border: 2px solid #ccc;
 	border-radius: var(--radius-2);
 	background: var(--panel-bg);

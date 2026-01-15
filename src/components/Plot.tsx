@@ -12,7 +12,6 @@ import { snapValue } from "../utils/snapping";
 
 const MARGIN = { top: 20, right: 20, bottom: 32, left: 50 } as const;
 const MIN_POINTS = 2;
-const DEFAULT_HEIGHT = 360;
 const BRUSH_ACTIVATE_PX = 3;
 
 let pointIdCounter = 1;
@@ -31,7 +30,7 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 	const plotRef = useRef(plot);
 	const frameRef = useRef<HTMLDivElement | null>(null);
 	const [frameWidth, setFrameWidth] = useState(720);
-	const [height] = useState(DEFAULT_HEIGHT);
+	const [height, setHeight] = useState(360);
 	const brushStart = useRef<number | null>(null);
 	const brushActive = useRef(false);
 	const backgroundPointerActive = useRef(false);
@@ -44,11 +43,17 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 	useLayoutEffect(() => {
 		const node = frameRef.current;
 		if (!node) return;
+		const updateSize = (entry?: ResizeObserverEntry) => {
+			const rect = entry?.contentRect ?? node.getBoundingClientRect();
+			setFrameWidth(rect.width);
+			setHeight(rect.height);
+		};
 		const observer = new ResizeObserver(entries => {
 			const entry = entries[0];
-			if (entry) setFrameWidth(entry.contentRect.width);
+			if (entry) updateSize(entry);
 		});
 		observer.observe(node);
+		updateSize();
 		return () => observer.disconnect();
 	}, []);
 
