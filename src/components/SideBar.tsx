@@ -54,8 +54,9 @@ export function SideBar({ plot, onChange }: Props) {
 		onChange(next);
 	};
 
-	const handleSnapPrecision = (axis: "x" | "y") => (e: ChangeEvent<HTMLSelectElement>) => {
+	const handleSnapPrecision = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
 		const value = parseFloat(e.target.value);
+		if (Number.isNaN(value) || value <= 0) return;
 		const next: PlotState =
 			axis === "x" ? { ...plot, snapPrecisionX: value } : { ...plot, snapPrecisionY: value };
 		onChange(next);
@@ -143,17 +144,23 @@ export function SideBar({ plot, onChange }: Props) {
 				<div className="form-row inline-pair">
 					<div className="row-label">Step</div>
 					<label className="mini-label">X</label>
-					<select className="row-control" value={plot.snapPrecisionX} onChange={handleSnapPrecision("x")}>
-						<option value={1}>1</option>
-						<option value={0.1}>0.1</option>
-						<option value={0.01}>0.01</option>
-					</select>
+					<input
+						className="row-control"
+						type="number"
+						step="any"
+						min={0.000001}
+						value={plot.snapPrecisionX}
+						onChange={handleSnapPrecision("x")}
+					/>
 					<label className="mini-label">Y</label>
-					<select className="row-control" value={plot.snapPrecisionY} onChange={handleSnapPrecision("y")}>
-						<option value={1}>1</option>
-						<option value={0.1}>0.1</option>
-						<option value={0.01}>0.01</option>
-					</select>
+					<input
+						className="row-control"
+						type="number"
+						step="any"
+						min={0.000001}
+						value={plot.snapPrecisionY}
+						onChange={handleSnapPrecision("y")}
+					/>
 				</div>
 			</div>
 

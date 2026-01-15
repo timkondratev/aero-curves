@@ -139,6 +139,11 @@
 	stroke: none;
 }
 
+.plot-grid line {
+	stroke: #e6e6e6;
+	stroke-width: 1;
+}
+
 .selection-bounds line {
 	pointer-events: none;
 }

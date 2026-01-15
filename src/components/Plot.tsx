@@ -68,6 +68,34 @@ export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
 		[plot.points]
 	);
 
+		const gridXLines = useMemo(() => {
+			if (!plot.showGridX) return [] as number[];
+			const step = plot.snapPrecisionX || 1;
+			if (step <= 0) return [] as number[];
+			const [min, max] = plot.domainX;
+			const start = Math.ceil(min / step) * step;
+			const lines: number[] = [];
+			for (let v = start; v <= max; v = parseFloat((v + step).toFixed(8))) {
+				lines.push(v);
+				if (lines.length > 500) break; // safety guard
+			}
+			return lines;
+		}, [plot.showGridX, plot.snapPrecisionX, plot.domainX]);
+
+		const gridYLines = useMemo(() => {
+			if (!plot.showGridY) return [] as number[];
+			const step = plot.snapPrecisionY || 1;
+			if (step <= 0) return [] as number[];
+			const [min, max] = plot.domainY;
+			const start = Math.ceil(min / step) * step;
+			const lines: number[] = [];
+			for (let v = start; v <= max; v = parseFloat((v + step).toFixed(8))) {
+				lines.push(v);
+				if (lines.length > 500) break; // safety guard
+			}
+			return lines;
+		}, [plot.showGridY, plot.snapPrecisionY, plot.domainY]);
+
 	const pathD = useMemo(() => {
 		return (
 			line<typeof pointsSorted[number]>()
@@ -282,6 +310,16 @@ export function Plot({ plot, active, onActivate, onChange, onRemove }: Props) {
 					onDoubleClick={handleDoubleClickBackground}
 				>
 					<g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+						{/* Grid */}
+						<g className="plot-grid" pointerEvents="none">
+							{gridXLines.map(v => (
+								<line key={`gx-${v}`} x1={xScale(v)} x2={xScale(v)} y1={0} y2={innerHeight} />
+							))}
+							{gridYLines.map(v => (
+								<line key={`gy-${v}`} x1={0} x2={innerWidth} y1={yScale(v)} y2={yScale(v)} />
+							))}
+						</g>
+
 						{/* Axes */}
 						<line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke="black" />
 						{scaleLinear().domain(plot.domainX).ticks(10).map(tick => (
