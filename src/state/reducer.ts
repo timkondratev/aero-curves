@@ -31,25 +31,43 @@ export type Action =
 let idCounter = 1;
 const nextId = () => `p_${idCounter++}`;
 
-const makeDefaultPoints = (): Point[] => {
-	return Array.from({ length: 12 }, (_, i) => {
-		const t = i / 11;
-		return { id: nextId(), x: -180 + 360 * t, y: Math.sin(t * Math.PI * 2) * 0.5 };
+const DEFAULT_DOMAIN_X: Domain = [-180, 180];
+const DEFAULT_DOMAIN_Y: Domain = [-1, 1];
+const DEFAULT_SNAP_X = false;
+const DEFAULT_SNAP_Y = false;
+const DEFAULT_SNAP_PRECISION_X = 1;
+const DEFAULT_SNAP_PRECISION_Y = 1;
+const DEFAULT_POINT_COUNT = 20;
+
+const makeDefaultPoints = (domainX: Domain, domainY: Domain): Point[] => {
+	const [minX, maxX] = domainX;
+	const spanX = maxX - minX;
+	const [minY, maxY] = domainY;
+	const midY = (minY + maxY) / 2;
+	const ampY = (maxY - minY) * 0.25; // keep a modest vertical range inside the domain
+
+	return Array.from({ length: DEFAULT_POINT_COUNT }, (_, i) => {
+		const t = i / (DEFAULT_POINT_COUNT - 1);
+		return {
+			id: nextId(),
+			x: minX + spanX * t,
+			y: midY + Math.sin(t * Math.PI * 2) * ampY,
+		};
 	});
 };
 
 const makePlot = (name: string): PlotState => ({
 	id: nextId(),
 	name,
-	points: makeDefaultPoints(),
+	points: makeDefaultPoints(DEFAULT_DOMAIN_X, DEFAULT_DOMAIN_Y),
 	selection: [],
 	brush: null,
-	domainX: [-180, 180],
-	domainY: [-1, 1],
-	snapX: false,
-	snapY: false,
-	snapPrecisionX: 1,
-	snapPrecisionY: 1,
+	domainX: DEFAULT_DOMAIN_X,
+	domainY: DEFAULT_DOMAIN_Y,
+	snapX: DEFAULT_SNAP_X,
+	snapY: DEFAULT_SNAP_Y,
+	snapPrecisionX: DEFAULT_SNAP_PRECISION_X,
+	snapPrecisionY: DEFAULT_SNAP_PRECISION_Y,
 });
 
 export const makeInitialState = (): AppState => {

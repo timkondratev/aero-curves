@@ -5,13 +5,8 @@ import type { PlotState, PointId } from "../state/reducer";
 import {
 	addPoint,
 	clampValue,
-	flipSelectionX,
-	flipSelectionY,
-	mirrorSelectionLeft,
-	mirrorSelectionRight,
 	removePoint,
 	sortPoints,
-	trimToSelection,
 } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
 
