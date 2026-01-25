@@ -3,6 +3,19 @@ export type PointId = string;
 export type Domain = [number, number];
 export type Point = { id: PointId; x: number; y: number };
 
+export type BackgroundImage = {
+	src: string | null;
+	name: string | null;
+	naturalWidth: number | null;
+	naturalHeight: number | null;
+	opacity: number;
+	fit: "contain" | "cover" | "stretch";
+	offsetX: number;
+	offsetY: number;
+	scaleX: number;
+	scaleY: number;
+};
+
 export type PlotState = {
 	id: PlotId;
 	name: string;
@@ -17,6 +30,7 @@ export type PlotState = {
 	snapY: boolean;
 	snapPrecisionX: number;
 	snapPrecisionY: number;
+	background: BackgroundImage;
 };
 
 export type AppState = {
@@ -43,6 +57,19 @@ const DEFAULT_SNAP_Y = false;
 const DEFAULT_SNAP_PRECISION_X = 1;
 const DEFAULT_SNAP_PRECISION_Y = 1;
 const DEFAULT_POINT_COUNT = 20;
+
+const makeDefaultBackground = (): BackgroundImage => ({
+	src: null,
+	name: null,
+	naturalWidth: null,
+	naturalHeight: null,
+	opacity: 0.6,
+	fit: "contain",
+	offsetX: 0,
+	offsetY: 0,
+	scaleX: 1,
+	scaleY: 1,
+});
 
 const makeDefaultPoints = (domainX: Domain, domainY: Domain): Point[] => {
 	const [minX, maxX] = domainX;
@@ -75,6 +102,7 @@ const makePlot = (name: string): PlotState => ({
 	snapY: DEFAULT_SNAP_Y,
 	snapPrecisionX: DEFAULT_SNAP_PRECISION_X,
 	snapPrecisionY: DEFAULT_SNAP_PRECISION_Y,
+	background: makeDefaultBackground(),
 });
 
 export const makeInitialState = (): AppState => {

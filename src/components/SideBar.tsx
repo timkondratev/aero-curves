@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import type { PlotState, PointId } from "../state/reducer";
 import { clampValue } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
@@ -12,6 +12,8 @@ export function SideBar({ plot, onChange }: Props) {
     if (!plot) {
         return <div className="plot-meta">Select a plot to edit.</div>;
     }
+
+    const bg = plot.background;
 
     const selection = useMemo(() => new Set<PointId>(plot.selection), [plot.selection]);
     const selectedPoints = useMemo(
@@ -41,6 +43,10 @@ export function SideBar({ plot, onChange }: Props) {
         x: String(plot.snapPrecisionX),
         y: String(plot.snapPrecisionY),
     });
+    const [scaleDraft, setScaleDraft] = useState<{ x: string; y: string }>({
+        x: String(plot.background.scaleX),
+        y: String(plot.background.scaleY),
+    });
 
     useEffect(() => {
         setNameDraft(plot.name);
@@ -51,6 +57,7 @@ export function SideBar({ plot, onChange }: Props) {
             y1: String(plot.domainY[1]),
         });
         setStepDraft({ x: String(plot.snapPrecisionX), y: String(plot.snapPrecisionY) });
+        setScaleDraft({ x: String(plot.background.scaleX), y: String(plot.background.scaleY) });
     }, [plot]);
 
     useEffect(() => {
@@ -66,9 +73,9 @@ export function SideBar({ plot, onChange }: Props) {
         onChange({ ...plot, name: nameDraft });
     };
 
-    const commitDomain = (axis: "x" | "y", index: 0 | 1) => {
+    const commitDomain = (axis: "x" | "y", index: 0 | 1, override?: number) => {
         const draftVal = axis === "x" ? (index === 0 ? domainDraft.x0 : domainDraft.x1) : index === 0 ? domainDraft.y0 : domainDraft.y1;
-        const value = parseFloat(draftVal);
+        const value = override ?? parseFloat(draftVal);
         if (Number.isNaN(value)) return;
         if (axis === "x") {
             const next: PlotState = { ...plot, domainX: index === 0 ? [value, plot.domainX[1]] : [plot.domainX[0], value] };
@@ -91,17 +98,17 @@ export function SideBar({ plot, onChange }: Props) {
         onChange(next);
     };
 
-    const commitSnapPrecision = (axis: "x" | "y") => {
+    const commitSnapPrecision = (axis: "x" | "y", override?: number) => {
         const draftVal = axis === "x" ? stepDraft.x : stepDraft.y;
-        const value = parseFloat(draftVal);
+        const value = override ?? parseFloat(draftVal);
         if (Number.isNaN(value) || value <= 0) return;
         const next: PlotState = axis === "x" ? { ...plot, snapPrecisionX: value } : { ...plot, snapPrecisionY: value };
         onChange(next);
     };
 
-    const commitCoord = (axis: "x" | "y") => {
+    const commitCoord = (axis: "x" | "y", override?: number) => {
         const draftVal = axis === "x" ? coordDraft.x : coordDraft.y;
-        const val = parseFloat(draftVal);
+        const val = override ?? parseFloat(draftVal);
         if (!selectedPoints.length || Number.isNaN(val)) return;
         const snapEnabled = axis === "x" ? plot.snapX : plot.snapY;
         const precision = axis === "x" ? plot.snapPrecisionX : plot.snapPrecisionY;
@@ -178,6 +185,112 @@ export function SideBar({ plot, onChange }: Props) {
         }
     };
 
+    const handleBackgroundFile = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const src = typeof reader.result === "string" ? reader.result : null;
+            if (!src) return;
+            const img = new Image();
+            img.onload = () => {
+                onChange({
+                    ...plot,
+                    background: {
+                        ...plot.background,
+                        src,
+                        name: file.name,
+                        naturalWidth: img.naturalWidth,
+                        naturalHeight: img.naturalHeight,
+                    },
+                });
+            };
+            img.src = src;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleBackgroundOpacity = (e: ChangeEvent<HTMLInputElement>) => {
+        const opacity = parseFloat(e.target.value);
+        if (Number.isNaN(opacity)) return;
+        onChange({ ...plot, background: { ...plot.background, opacity } });
+    };
+
+    const handleBackgroundFit = (e: ChangeEvent<HTMLSelectElement>) => {
+        const fit = e.target.value as typeof plot.background.fit;
+        onChange({ ...plot, background: { ...plot.background, fit } });
+    };
+
+    const handleBackgroundOffset = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        if (Number.isNaN(val)) return;
+        onChange({
+            ...plot,
+            background: {
+                ...plot.background,
+                offsetX: axis === "x" ? val : plot.background.offsetX,
+                offsetY: axis === "y" ? val : plot.background.offsetY,
+            },
+        });
+    };
+
+    const commitBackgroundScale = (axis: "x" | "y", override?: number) => {
+        const raw = axis === "x" ? scaleDraft.x : scaleDraft.y;
+        const val = override ?? parseFloat(raw);
+        if (Number.isNaN(val)) return;
+        const clamped = clampValue(val, [0.1, 10]);
+        setScaleDraft(d => ({ ...d, [axis]: String(clamped) }));
+        onChange({
+            ...plot,
+            background: {
+                ...plot.background,
+                scaleX: axis === "x" ? clamped : plot.background.scaleX,
+                scaleY: axis === "y" ? clamped : plot.background.scaleY,
+            },
+        });
+    };
+
+    const startNumberDrag = (
+        e: ReactMouseEvent<HTMLInputElement>,
+        getValue: () => number,
+        apply: (val: number) => void,
+        baseStep = 1
+    ) => {
+        if (e.button !== 0) return;
+        const startY = e.clientY;
+        const startVal = getValue();
+        const handleMove = (ev: MouseEvent) => {
+            const dy = ev.clientY - startY;
+            if (Math.abs(dy) < 2) return; // small jiggles shouldn't change value
+            const modifier = ev.shiftKey ? 10 : ev.altKey ? 0.1 : 1;
+            const next = startVal - dy * baseStep * modifier;
+            apply(next);
+        };
+        const handleUp = () => {
+            window.removeEventListener("mousemove", handleMove);
+            window.removeEventListener("mouseup", handleUp);
+        };
+        // Allow focus for typing even when dragging is available
+        e.currentTarget.focus();
+        window.addEventListener("mousemove", handleMove);
+        window.addEventListener("mouseup", handleUp);
+    };
+
+    const clearBackground = () => {
+        onChange({
+            ...plot,
+            background: {
+                ...plot.background,
+                src: null,
+                name: null,
+                naturalWidth: null,
+                naturalHeight: null,
+                scaleX: 1,
+                scaleY: 1,
+            },
+        });
+    };
+
     return (
         <div className="sidebar-form">
             <div className="panel-section">
@@ -192,6 +305,15 @@ export function SideBar({ plot, onChange }: Props) {
                         onChange={e => setCoordDraft(d => ({ ...d, x: e.target.value }))}
                         onBlur={() => commitCoord("x")}
                         onKeyDown={onEnter}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(coordDraft.x) || 0,
+                            val => {
+                                setCoordDraft(d => ({ ...d, x: String(val) }));
+                                commitCoord("x", val);
+                            },
+                            0.5
+                        )}
                         disabled={!center}
                     />
                     <label className="mini-label">Y</label>
@@ -202,6 +324,15 @@ export function SideBar({ plot, onChange }: Props) {
                         onChange={e => setCoordDraft(d => ({ ...d, y: e.target.value }))}
                         onBlur={() => commitCoord("y")}
                         onKeyDown={onEnter}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(coordDraft.y) || 0,
+                            val => {
+                                setCoordDraft(d => ({ ...d, y: String(val) }));
+                                commitCoord("y", val);
+                            },
+                            0.5
+                        )}
                         disabled={!center}
                     />
                 </div>
@@ -221,6 +352,16 @@ export function SideBar({ plot, onChange }: Props) {
                         onChange={e => setStepDraft(d => ({ ...d, x: e.target.value }))}
                         onBlur={() => commitSnapPrecision("x")}
                         onKeyDown={onEnter}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(stepDraft.x) || 0,
+                            val => {
+                                const next = Math.max(val, 0.000001);
+                                setStepDraft(d => ({ ...d, x: String(next) }));
+                                commitSnapPrecision("x", next);
+                            },
+                            0.05
+                        )}
                     />
                     <label className="mini-label">Y</label>
                     <input
@@ -232,6 +373,16 @@ export function SideBar({ plot, onChange }: Props) {
                         onChange={e => setStepDraft(d => ({ ...d, y: e.target.value }))}
                         onBlur={() => commitSnapPrecision("y")}
                         onKeyDown={onEnter}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(stepDraft.y) || 0,
+                            val => {
+                                const next = Math.max(val, 0.000001);
+                                setStepDraft(d => ({ ...d, y: String(next) }));
+                                commitSnapPrecision("y", next);
+                            },
+                            0.05
+                        )}
                     />
                 </div>
                 <div className="form-row inline-pair">
@@ -271,6 +422,14 @@ export function SideBar({ plot, onChange }: Props) {
                         onChange={e => setDomainDraft(d => ({ ...d, x0: e.target.value }))}
                         onBlur={() => commitDomain("x", 0)}
                         onKeyDown={onEnter}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(domainDraft.x0) || 0,
+                            val => {
+                                setDomainDraft(d => ({ ...d, x0: String(val) }));
+                                commitDomain("x", 0, val);
+                            }
+                        )}
                     />
                     <input
                         className="row-control"
@@ -279,6 +438,14 @@ export function SideBar({ plot, onChange }: Props) {
                         onChange={e => setDomainDraft(d => ({ ...d, x1: e.target.value }))}
                         onBlur={() => commitDomain("x", 1)}
                         onKeyDown={onEnter}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(domainDraft.x1) || 0,
+                            val => {
+                                setDomainDraft(d => ({ ...d, x1: String(val) }));
+                                commitDomain("x", 1, val);
+                            }
+                        )}
                     />
                 </div>
                 <div className="form-row inline-pair">
@@ -290,6 +457,14 @@ export function SideBar({ plot, onChange }: Props) {
                         onChange={e => setDomainDraft(d => ({ ...d, y0: e.target.value }))}
                         onBlur={() => commitDomain("y", 0)}
                         onKeyDown={onEnter}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(domainDraft.y0) || 0,
+                            val => {
+                                setDomainDraft(d => ({ ...d, y0: String(val) }));
+                                commitDomain("y", 0, val);
+                            }
+                        )}
                     />
                     <input
                         className="row-control"
@@ -298,6 +473,138 @@ export function SideBar({ plot, onChange }: Props) {
                         onChange={e => setDomainDraft(d => ({ ...d, y1: e.target.value }))}
                         onBlur={() => commitDomain("y", 1)}
                         onKeyDown={onEnter}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(domainDraft.y1) || 0,
+                            val => {
+                                setDomainDraft(d => ({ ...d, y1: String(val) }));
+                                commitDomain("y", 1, val);
+                            }
+                        )}
+                    />
+                </div>
+            </div>
+            <div className="panel-section">
+                <div className="section-title">BACKGROUND IMAGE</div>
+                <div className="form-row">
+                    <div className="row-label">Image</div>
+                    <input
+                        className="row-control"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBackgroundFile}
+                    />
+                </div>
+                <div className="form-row inline-pair">
+                    <div className="row-label">Loaded</div>
+                    <div className="row-static">{bg.name ?? "None"}</div>
+                    <div className="row-static">
+                        {bg.naturalWidth && bg.naturalHeight ? `${bg.naturalWidth}x${bg.naturalHeight}` : ""}
+                    </div>
+                    {bg.src && (
+                        <button className="btn" type="button" onClick={clearBackground}>
+                            Clear
+                        </button>
+                    )}
+                </div>
+                <div className="form-row inline-pair">
+                    <div className="row-label">Opacity</div>
+                    <input
+                        className="row-control"
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={bg.opacity}
+                        onChange={handleBackgroundOpacity}
+                    />
+                    <div className="row-static">{bg.opacity.toFixed(2)}</div>
+                </div>
+                <div className="form-row inline-pair">
+                    <div className="row-label">Fit</div>
+                    <select
+                        className="row-control"
+                        value={bg.fit}
+                        onChange={handleBackgroundFit}
+                        disabled={!bg.src}
+                    >
+                        <option value="contain">Contain</option>
+                        <option value="cover">Cover</option>
+                        <option value="stretch">Stretch</option>
+                    </select>
+                </div>
+                <div className="form-row inline-pair">
+                    <div className="row-label">Offset</div>
+                    <label className="mini-label">X</label>
+                    <input
+                        className="row-control"
+                        type="number"
+                        step="any"
+                        value={bg.offsetX}
+                        onChange={handleBackgroundOffset("x")}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => bg.offsetX,
+                            val => onChange({ ...plot, background: { ...plot.background, offsetX: val } })
+                        )}
+                        disabled={!bg.src}
+                    />
+                    <label className="mini-label">Y</label>
+                    <input
+                        className="row-control"
+                        type="number"
+                        step="any"
+                        value={bg.offsetY}
+                        onChange={handleBackgroundOffset("y")}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => bg.offsetY,
+                            val => onChange({ ...plot, background: { ...plot.background, offsetY: val } })
+                        )}
+                        disabled={!bg.src}
+                    />
+                </div>
+                <div className="form-row inline-pair">
+                    <div className="row-label">Scale</div>
+                    <label className="mini-label">X</label>
+                    <input
+                        className="row-control"
+                        type="number"
+                        step="any"
+                        value={scaleDraft.x}
+                        onChange={e => setScaleDraft(d => ({ ...d, x: e.target.value }))}
+                        onBlur={() => commitBackgroundScale("x")}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(scaleDraft.x) || 0,
+                            val => {
+                                const clamped = clampValue(val, [0.1, 10]);
+                                setScaleDraft(d => ({ ...d, x: String(clamped) }));
+                                commitBackgroundScale("x", clamped);
+                            },
+                            0.05
+                        )}
+                        disabled={!bg.src}
+                    />
+                    <label className="mini-label">Y</label>
+                    <input
+                        className="row-control"
+                        type="number"
+                        step="any"
+                        value={scaleDraft.y}
+                        onChange={e => setScaleDraft(d => ({ ...d, y: e.target.value }))}
+                        onBlur={() => commitBackgroundScale("y")}
+                        onMouseDown={e => startNumberDrag(
+                            e,
+                            () => parseFloat(scaleDraft.y) || 0,
+                            val => {
+                                const clamped = clampValue(val, [0.1, 10]);
+                                setScaleDraft(d => ({ ...d, y: String(clamped) }));
+                                commitBackgroundScale("y", clamped);
+                            },
+                            0.05
+                        )}
+                        disabled={!bg.src}
                     />
                 </div>
             </div>

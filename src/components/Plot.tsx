@@ -283,6 +283,53 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 		);
 	};
 
+	const renderBackgroundImage = () => {
+		const bg = plot.background;
+		if (!bg.src) return null;
+		const imgW = bg.naturalWidth ?? innerWidth;
+		const imgH = bg.naturalHeight ?? innerHeight;
+		const ratio = imgW > 0 && imgH > 0 ? imgW / imgH : 1;
+		const frameRatio = innerWidth / innerHeight;
+		let width = innerWidth;
+		let height = innerHeight;
+		if (bg.fit === "contain") {
+			if (frameRatio > ratio) {
+				height = innerHeight;
+				width = innerHeight * ratio;
+			} else {
+				width = innerWidth;
+				height = innerWidth / ratio;
+			}
+		} else if (bg.fit === "cover") {
+			if (frameRatio > ratio) {
+				width = innerWidth;
+				height = innerWidth / ratio;
+			} else {
+				height = innerHeight;
+				width = innerHeight * ratio;
+			}
+		} else {
+			width = innerWidth;
+			height = innerHeight;
+		}
+		width *= bg.scaleX;
+		height *= bg.scaleY;
+		const x = bg.offsetX;
+		const y = bg.offsetY;
+		return (
+			<image
+				href={bg.src}
+				x={x}
+				y={y}
+				width={width}
+				height={height}
+				opacity={bg.opacity}
+				preserveAspectRatio="none"
+				style={{ pointerEvents: "none" }}
+			/>
+		);
+	};
+
 	const renderSelectionBounds = () => {
 		if (!selection.size) return null;
 		const selected = pointsSorted.filter(p => selection.has(p.id));
@@ -326,6 +373,7 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 					onDoubleClick={handleDoubleClickBackground}
 				>
 					<g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+							{renderBackgroundImage()}
 						{/* Grid */}
 						<g className="plot-grid" pointerEvents="none">
 							{gridXLines.map(v => (

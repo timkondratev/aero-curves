@@ -121,6 +121,10 @@ input[type="radio"] {
 	overflow: auto;
 	position: sticky;
 	top: var(--space-3);
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
 }
 
 .sidebar-drag-handle {
