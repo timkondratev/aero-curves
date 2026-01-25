@@ -7,8 +7,7 @@ import type { PlotState, PlotId, AppState } from "./state/reducer";
 import {
 	flipSelectionX,
 	flipSelectionY,
-	mirrorSelectionLeft,
-	mirrorSelectionRight,
+	mirrorSelection,
 	duplicateSelectionLeft,
 	duplicateSelectionRight,
 	trimToSelection,
@@ -94,14 +93,14 @@ function App_() {
 	const handleMirrorLeft = () => {
 		updateActivePlot(p => ({
 			...p,
-			...mirrorSelectionLeft(p.points, new Set(p.selection), () => crypto.randomUUID()),
+			...mirrorSelection(p.points, new Set(p.selection), () => crypto.randomUUID(), "left"),
 		}));
 	};
 
 	const handleMirrorRight = () => {
 		updateActivePlot(p => ({
 			...p,
-			...mirrorSelectionRight(p.points, new Set(p.selection), () => crypto.randomUUID()),
+			...mirrorSelection(p.points, new Set(p.selection), () => crypto.randomUUID(), "right"),
 		}));
 	};
 
