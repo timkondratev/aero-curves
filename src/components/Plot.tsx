@@ -1,13 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { scaleLinear, line, curveMonotoneX } from "d3";
+import { scaleLinear } from "d3";
 import type { PointerEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { PlotState, PointId } from "../state/reducer";
-import {
-	addPoint,
-	clampValue,
-	removePoint,
-} from "../utils/geometry";
+import { addPoint, clampValue, removePoint } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
+import { buildMonotonePath } from "../utils/monotone";
 
 const MARGIN = { top: 20, right: 20, bottom: 32, left: 50 } as const;
 const MIN_POINTS = 2;
@@ -73,41 +70,36 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 		[plot.points]
 	);
 
-		const gridXLines = useMemo(() => {
-			if (!plot.showGridX) return [] as number[];
-			const step = plot.snapPrecisionX || 1;
-			if (step <= 0) return [] as number[];
-			const [min, max] = plot.domainX;
-			const start = Math.ceil(min / step) * step;
-			const lines: number[] = [];
-			for (let v = start; v <= max; v = parseFloat((v + step).toFixed(8))) {
-				lines.push(v);
-				if (lines.length > 500) break; // safety guard
-			}
-			return lines;
-		}, [plot.showGridX, plot.snapPrecisionX, plot.domainX]);
+	const gridXLines = useMemo(() => {
+		if (!plot.showGridX) return [] as number[];
+		const step = plot.snapPrecisionX || 1;
+		if (step <= 0) return [] as number[];
+		const [min, max] = plot.domainX;
+		const start = Math.ceil(min / step) * step;
+		const lines: number[] = [];
+		for (let v = start; v <= max; v = parseFloat((v + step).toFixed(8))) {
+			lines.push(v);
+			if (lines.length > 500) break;
+		}
+		return lines;
+	}, [plot.showGridX, plot.snapPrecisionX, plot.domainX]);
 
-		const gridYLines = useMemo(() => {
-			if (!plot.showGridY) return [] as number[];
-			const step = plot.snapPrecisionY || 1;
-			if (step <= 0) return [] as number[];
-			const [min, max] = plot.domainY;
-			const start = Math.ceil(min / step) * step;
-			const lines: number[] = [];
-			for (let v = start; v <= max; v = parseFloat((v + step).toFixed(8))) {
-				lines.push(v);
-				if (lines.length > 500) break; // safety guard
-			}
-			return lines;
-		}, [plot.showGridY, plot.snapPrecisionY, plot.domainY]);
+	const gridYLines = useMemo(() => {
+		if (!plot.showGridY) return [] as number[];
+		const step = plot.snapPrecisionY || 1;
+		if (step <= 0) return [] as number[];
+		const [min, max] = plot.domainY;
+		const start = Math.ceil(min / step) * step;
+		const lines: number[] = [];
+		for (let v = start; v <= max; v = parseFloat((v + step).toFixed(8))) {
+			lines.push(v);
+			if (lines.length > 500) break;
+		}
+		return lines;
+	}, [plot.showGridY, plot.snapPrecisionY, plot.domainY]);
 
 	const pathD = useMemo(() => {
-		return (
-			line<typeof pointsSorted[number]>()
-				.x(d => xScale(d.x))
-				.y(d => yScale(d.y))
-				.curve(curveMonotoneX)(pointsSorted) ?? ""
-		);
+		return buildMonotonePath(pointsSorted, xScale, yScale);
 	}, [pointsSorted, xScale, yScale]);
 
 	const selection = useMemo(() => new Set(plot.selection), [plot.selection]);
