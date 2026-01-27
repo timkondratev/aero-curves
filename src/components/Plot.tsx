@@ -226,7 +226,8 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 			const rawX = origin.x + dx;
 			const clampedX = clampValue(clampValue(rawX, [left, right]), plotRef.current.domainX);
 			const clampedY = clampValue(origin.y + dy, plotRef.current.domainY);
-			const nx = snapX(clampedX);
+			const snapped = snapX(clampedX);
+			const nx = clampValue(snapped, [left + 1e-9, right - 1e-9]);
 			const ny = snapY(clampedY);
 			return { ...p, x: nx, y: ny };
 		});
