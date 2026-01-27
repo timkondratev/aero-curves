@@ -290,32 +290,32 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 		const imgH = bg.naturalHeight ?? innerHeight;
 		const ratio = imgW > 0 && imgH > 0 ? imgW / imgH : 1;
 		const frameRatio = innerWidth / innerHeight;
-		let width = innerWidth;
-		let height = innerHeight;
+		let baseWidth = innerWidth;
+		let baseHeight = innerHeight;
 		if (bg.fit === "contain") {
 			if (frameRatio > ratio) {
-				height = innerHeight;
-				width = innerHeight * ratio;
+				baseHeight = innerHeight;
+				baseWidth = innerHeight * ratio;
 			} else {
-				width = innerWidth;
-				height = innerWidth / ratio;
+				baseWidth = innerWidth;
+				baseHeight = innerWidth / ratio;
 			}
 		} else if (bg.fit === "cover") {
 			if (frameRatio > ratio) {
-				width = innerWidth;
-				height = innerWidth / ratio;
+				baseWidth = innerWidth;
+				baseHeight = innerWidth / ratio;
 			} else {
-				height = innerHeight;
-				width = innerHeight * ratio;
+				baseHeight = innerHeight;
+				baseWidth = innerHeight * ratio;
 			}
 		} else {
-			width = innerWidth;
-			height = innerHeight;
+			baseWidth = innerWidth;
+			baseHeight = innerHeight;
 		}
-		width *= bg.scaleX;
-		height *= bg.scaleY;
-		const x = bg.offsetX;
-		const y = bg.offsetY;
+		const width = baseWidth * bg.scaleX;
+		const height = baseHeight * bg.scaleY;
+		const x = bg.offsetX + (baseWidth - width) / 2;
+		const y = bg.offsetY + (baseHeight - height) / 2;
 		return (
 			<image
 				href={bg.src}
