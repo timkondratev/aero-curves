@@ -1,25 +1,5 @@
 export type SplinePoint = { x: number; y: number };
 
-type MonotoneState = { _x0: number; _x1: number; _y0: number; _y1: number };
-
-const sign = (x: number) => (x < 0 ? -1 : 1);
-
-// Calculate the slopes of the tangents (Steffen monotone interpolation)
-const slope3 = (state: MonotoneState, x2: number, y2: number) => {
-	const h0 = state._x1 - state._x0;
-	const h1 = x2 - state._x1;
-	const s0 = (state._y1 - state._y0) / (h0 || (h1 < 0 ? -0 : 0));
-	const s1 = (y2 - state._y1) / (h1 || (h0 < 0 ? -0 : 0));
-	const p = (s0 * h1 + s1 * h0) / (h0 + h1);
-	return (sign(s0) + sign(s1)) * Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p)) || 0;
-};
-
-// Calculate a one-sided slope.
-const slope2 = (state: MonotoneState, t: number) => {
-	const h = state._x1 - state._x0;
-	return h ? (3 * (state._y1 - state._y0) / h - t) / 2 : t;
-};
-
 class PathStringContext {
 	private parts: string[] = [];
 
@@ -44,185 +24,113 @@ class PathStringContext {
 	}
 }
 
-class MonotoneX implements MonotoneState {
-	private _context: PathStringContext;
-	_x0 = NaN;
-	_x1 = NaN;
-	_y0 = NaN;
-	_y1 = NaN;
-	_t0 = NaN;
-	_point = 0;
-	_line = 0;
-
-	constructor(context: PathStringContext) {
-		this._context = context;
+const computeTangents = (pts: SplinePoint[]) => {
+	const n = pts.length;
+	const m: number[] = new Array(n - 1);
+	for (let i = 0; i < n - 1; i++) {
+		const dx = pts[i + 1].x - pts[i].x;
+		const dy = pts[i + 1].y - pts[i].y;
+		m[i] = dx !== 0 ? dy / dx : 0;
 	}
-
-	lineStart() {
-		this._x0 = this._x1 = this._y0 = this._y1 = this._t0 = NaN;
-		this._point = 0;
-	}
-
-	lineEnd() {
-		switch (this._point) {
-			case 2:
-				this._context.lineTo(this._x1, this._y1);
-				break;
-			case 3:
-				this.pointHelper(this._t0, slope2(this, this._t0));
-				break;
-			default:
-				break;
+	const t: number[] = new Array(n);
+	// Endpoints use adjacent segment slope
+	t[0] = m[0] ?? 0;
+	t[n - 1] = m[n - 2] ?? 0;
+	for (let i = 1; i < n - 1; i++) {
+		const s0 = m[i - 1];
+		const s1 = m[i];
+		if (s0 === 0 || s1 === 0 || Math.sign(s0) !== Math.sign(s1)) {
+			t[i] = 0;
+			continue;
 		}
-		if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
-		this._line = 1 - this._line;
+		const h0 = pts[i].x - pts[i - 1].x;
+		const h1 = pts[i + 1].x - pts[i].x;
+		const p = (s0 * h1 + s1 * h0) / (h0 + h1);
+		const minMag = Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p));
+		t[i] = (Math.sign(s0) + Math.sign(s1)) * minMag;
 	}
+	return t;
+};
 
-	point(x: number, y: number) {
-		let t1 = NaN;
-		x = +x;
-		y = +y;
-		if (x === this._x1 && y === this._y1) return; // Ignore coincident points.
-		switch (this._point) {
-			case 0:
-				this._point = 1;
-				this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y);
-				break;
-			case 1:
-				this._point = 2;
-				break;
-			case 2:
-				this._point = 3;
-				this.pointHelper(slope2(this, (t1 = slope3(this, x, y))), t1);
-				break;
-			default:
-				this.pointHelper(this._t0, (t1 = slope3(this, x, y)));
-				break;
+const hermite = (t: number, h: number, y0: number, y1: number, m0: number, m1: number) => {
+	const t2 = t * t;
+	const t3 = t2 * t;
+	const h00 = 2 * t3 - 3 * t2 + 1;
+	const h10 = t3 - 2 * t2 + t;
+	const h01 = -2 * t3 + 3 * t2;
+	const h11 = t3 - t2;
+	return h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1;
+};
+
+const buildPathFromTangents = (
+	pts: SplinePoint[],
+	tangents: number[],
+	xScale: (x: number) => number,
+	yScale: (y: number) => number
+) => {
+	const ctx = new PathStringContext();
+	const kx = xScale(1) - xScale(0);
+	const ky = yScale(1) - yScale(0);
+	const slopeToScreen = (t: number) => t * (ky / kx);
+
+	const p0 = pts[0];
+	ctx.moveTo(xScale(p0.x), yScale(p0.y));
+	for (let i = 0; i < pts.length - 1; i++) {
+		const pa = pts[i];
+		const pb = pts[i + 1];
+		const m0 = slopeToScreen(tangents[i]);
+		const m1 = slopeToScreen(tangents[i + 1]);
+		const x0s = xScale(pa.x);
+		const y0s = yScale(pa.y);
+		const x1s = xScale(pb.x);
+		const y1s = yScale(pb.y);
+		const dxs = (x1s - x0s) / 3;
+		ctx.bezierCurveTo(x0s + dxs, y0s + dxs * m0, x1s - dxs, y1s - dxs * m1, x1s, y1s);
+	}
+	return ctx.toString();
+};
+
+export const buildMonotoneSpline = (
+	pts: SplinePoint[],
+	xScale: (x: number) => number,
+	yScale: (y: number) => number
+) => {
+	if (pts.length === 0) return { pathD: "", evaluate: (_x: number) => NaN };
+	if (pts.length === 1) {
+		const p = pts[0];
+		return {
+			pathD: `M${xScale(p.x)},${yScale(p.y)}`,
+			evaluate: (_x: number) => p.y,
+		};
+	}
+	const tangents = computeTangents(pts);
+	const pathD = buildPathFromTangents(pts, tangents, xScale, yScale);
+
+	const evaluate = (x: number) => {
+		const n = pts.length;
+		if (x <= pts[0].x) return pts[0].y;
+		if (x >= pts[n - 1].x) return pts[n - 1].y;
+		let lo = 0;
+		let hi = n - 1;
+		while (hi - lo > 1) {
+			const mid = (lo + hi) >> 1;
+			if (x < pts[mid].x) hi = mid; else lo = mid;
 		}
+		const x0 = pts[lo].x;
+		const x1 = pts[hi].x;
+		const y0 = pts[lo].y;
+		const y1 = pts[hi].y;
+		const h = x1 - x0;
+		if (h === 0) return y0;
+		const u = (x - x0) / h;
+		return hermite(u, h, y0, y1, tangents[lo], tangents[hi]);
+	};
 
-		this._x0 = this._x1;
-		this._x1 = x;
-		this._y0 = this._y1;
-		this._y1 = y;
-		this._t0 = t1;
-	}
-
-	private pointHelper(t0: number, t1: number) {
-		const x0 = this._x0;
-		const y0 = this._y0;
-		const x1 = this._x1;
-		const y1 = this._y1;
-		const dx = (x1 - x0) / 3;
-		this._context.bezierCurveTo(x0 + dx, y0 + dx * t0, x1 - dx, y1 - dx * t1, x1, y1);
-	}
-}
+	return { pathD, evaluate };
+};
 
 export const buildMonotonePath = (
 	pts: SplinePoint[],
 	xScale: (x: number) => number,
 	yScale: (y: number) => number
-) => {
-	// Compute all slopes in data space for reproducibility, then transform to screen.
-	if (pts.length === 0) return "";
-	if (pts.length === 1) {
-		const p = pts[0];
-		return `M${xScale(p.x)},${yScale(p.y)}`;
-	}
-
-	// Precompute linear scale derivatives to convert data slopes to screen slopes.
-	const kx = xScale(1) - xScale(0);
-	const ky = yScale(1) - yScale(0);
-	const slopeToScreen = (t: number) => t * (ky / kx);
-
-	const ctx = new PathStringContext();
-	const curve = new MonotoneX(ctx);
-	curve.lineStart();
-
-	// Feed points in data order but store data-space, then convert per Bézier segment to screen.
-	let prev: SplinePoint | null = null;
-	let prevPrev: SplinePoint | null = null;
-	let tPrev = NaN;
-
-	const emitFirst = (p: SplinePoint) => {
-		curve._x0 = curve._x1 = p.x;
-		curve._y0 = curve._y1 = p.y;
-		curve._t0 = NaN;
-		curve._point = 1;
-		curve._line ? ctx.lineTo(xScale(p.x), yScale(p.y)) : ctx.moveTo(xScale(p.x), yScale(p.y));
-	};
-
-	const emitSecond = (p: SplinePoint) => {
-		curve._point = 2;
-		curve._x1 = p.x;
-		curve._y1 = p.y;
-	};
-
-	const emitNext = (p: SplinePoint) => {
-		const t1 = slope3(curve, p.x, p.y);
-		const screenT0 = slopeToScreen(tPrev);
-		const screenT1 = slopeToScreen(t1);
-		const x0s = xScale(curve._x0);
-		const y0s = yScale(curve._y0);
-		const x1s = xScale(curve._x1);
-		const y1s = yScale(curve._y1);
-		const dxs = (x1s - x0s) / 3;
-		ctx.bezierCurveTo(x0s + dxs, y0s + dxs * screenT0, x1s - dxs, y1s - dxs * screenT1, x1s, y1s);
-		curve._t0 = t1;
-		curve._x0 = curve._x1;
-		curve._y0 = curve._y1;
-		curve._x1 = p.x;
-		curve._y1 = p.y;
-		tPrev = t1;
-	};
-
-	for (const p of pts) {
-		if (!prev) {
-			emitFirst(p);
-			prev = p;
-			continue;
-		}
-		if (!prevPrev) {
-			emitSecond(p);
-			curve._x0 = prev.x;
-			curve._y0 = prev.y;
-			curve._t0 = NaN;
-			prevPrev = prev;
-			prev = p;
-			continue;
-		}
-		// Compute tPrev when we have three points (first segment tangent).
-		if (Number.isNaN(tPrev)) {
-			tPrev = slope2(curve, slope3(curve, p.x, p.y));
-			curve._t0 = tPrev;
-		}
-		emitNext(p);
-		prevPrev = prev;
-		prev = p;
-	}
-
-	// Handle lineEnd cases
-	switch (curve._point) {
-		case 2: {
-			const x1s = xScale(curve._x1);
-			const y1s = yScale(curve._y1);
-			ctx.lineTo(x1s, y1s);
-			break;
-		}
-		case 3: {
-			const t1 = slope2(curve, curve._t0);
-			const screenT0 = slopeToScreen(curve._t0);
-			const screenT1 = slopeToScreen(t1);
-			const x0s = xScale(curve._x0);
-			const y0s = yScale(curve._y0);
-			const x1s = xScale(curve._x1);
-			const y1s = yScale(curve._y1);
-			const dxs = (x1s - x0s) / 3;
-			ctx.bezierCurveTo(x0s + dxs, y0s + dxs * screenT0, x1s - dxs, y1s - dxs * screenT1, x1s, y1s);
-			break;
-		}
-		default:
-			break;
-	}
-
-	return ctx.toString();
-};
+) => buildMonotoneSpline(pts, xScale, yScale).pathD;
