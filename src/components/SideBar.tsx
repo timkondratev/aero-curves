@@ -215,11 +215,6 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
         onChange({ ...plot, background: { ...plot.background, opacity } });
     };
 
-    const handleBackgroundFit = (e: ChangeEvent<HTMLSelectElement>) => {
-        const fit = e.target.value as typeof plot.background.fit;
-        onChange({ ...plot, background: { ...plot.background, fit } });
-    };
-
     const handleBackgroundOffset = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
         const val = parseFloat(e.target.value);
         if (Number.isNaN(val)) return;
@@ -248,6 +243,15 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
             },
         });
     };
+
+    const spanX = plot.domainX[1] - plot.domainX[0];
+    const spanY = plot.domainY[1] - plot.domainY[0];
+    const offsetStepX = Math.max(spanX / 1000, 1e-6);
+    const offsetStepY = Math.max(spanY / 1000, 1e-6);
+    const minSpan = Math.min(spanX, spanY);
+    const scaleStepBase = Math.max(minSpan / 100, 0.001);
+    const scaleStepX = Math.min(scaleStepBase, 0.2);
+    const scaleStepY = Math.min(scaleStepBase, 0.2);
 
     const clearBackground = () => {
         onChange({
@@ -299,10 +303,13 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
                 onChange={onChange}
                 handleBackgroundFile={handleBackgroundFile}
                 handleBackgroundOpacity={handleBackgroundOpacity}
-                handleBackgroundFit={handleBackgroundFit}
                 handleBackgroundOffset={handleBackgroundOffset}
                 commitBackgroundScale={commitBackgroundScale}
                 clearBackground={clearBackground}
+                offsetStepX={offsetStepX}
+                offsetStepY={offsetStepY}
+                scaleStepX={scaleStepX}
+                scaleStepY={scaleStepY}
             />
             <DataPanel plot={plot} onChange={onChange} />
         </div>

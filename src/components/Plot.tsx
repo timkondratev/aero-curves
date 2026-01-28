@@ -281,33 +281,27 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 		const imgW = bg.naturalWidth ?? innerWidth;
 		const imgH = bg.naturalHeight ?? innerHeight;
 		const ratio = imgW > 0 && imgH > 0 ? imgW / imgH : 1;
-		const frameRatio = innerWidth / innerHeight;
-		let baseWidth = innerWidth;
-		let baseHeight = innerHeight;
-		if (bg.fit === "contain") {
-			if (frameRatio > ratio) {
-				baseHeight = innerHeight;
-				baseWidth = innerHeight * ratio;
-			} else {
-				baseWidth = innerWidth;
-				baseHeight = innerWidth / ratio;
-			}
-		} else if (bg.fit === "cover") {
-			if (frameRatio > ratio) {
-				baseWidth = innerWidth;
-				baseHeight = innerWidth / ratio;
-			} else {
-				baseHeight = innerHeight;
-				baseWidth = innerHeight * ratio;
-			}
-		} else {
-			baseWidth = innerWidth;
-			baseHeight = innerHeight;
-		}
-		const width = baseWidth * bg.scaleX;
-		const height = baseHeight * bg.scaleY;
-		const x = bg.offsetX + (baseWidth - width) / 2;
-		const y = bg.offsetY + (baseHeight - height) / 2;
+		const domainSpanX = plot.domainX[1] - plot.domainX[0];
+		const domainSpanY = plot.domainY[1] - plot.domainY[0];
+		const pxPerDomainX = innerWidth / domainSpanX;
+		const pxPerDomainY = innerHeight / domainSpanY;
+
+		// First, compute the contain-fit size in pixel space
+		const frameRatioPx = innerWidth / innerHeight;
+		const containWidthPx = frameRatioPx > ratio ? innerHeight * ratio : innerWidth;
+		const containHeightPx = frameRatioPx > ratio ? innerHeight : innerWidth / ratio;
+
+		// Convert that pixel size into domain units, then apply user scaling
+		const baseDomainWidth = containWidthPx / pxPerDomainX;
+		const baseDomainHeight = containHeightPx / pxPerDomainY;
+		const finalDomainWidth = baseDomainWidth * bg.scaleX;
+		const finalDomainHeight = baseDomainHeight * bg.scaleY;
+		const centerDomainX = (plot.domainX[0] + plot.domainX[1]) / 2 + bg.offsetX;
+		const centerDomainY = (plot.domainY[0] + plot.domainY[1]) / 2 + bg.offsetY;
+		const width = finalDomainWidth * pxPerDomainX;
+		const height = finalDomainHeight * pxPerDomainY;
+		const x = xScale(centerDomainX) - width / 2;
+		const y = yScale(centerDomainY) - height / 2;
 		return (
 			<image
 				href={bg.src}

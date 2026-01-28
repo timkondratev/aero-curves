@@ -12,10 +12,13 @@ type Props = {
 	onChange: (plot: PlotState) => void;
 	handleBackgroundFile: (e: ChangeEvent<HTMLInputElement>) => void;
 	handleBackgroundOpacity: (e: ChangeEvent<HTMLInputElement>) => void;
-	handleBackgroundFit: (e: ChangeEvent<HTMLSelectElement>) => void;
 	handleBackgroundOffset: (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => void;
 	commitBackgroundScale: (axis: "x" | "y", override?: number) => void;
 	clearBackground: () => void;
+	offsetStepX: number;
+	offsetStepY: number;
+	scaleStepX: number;
+	scaleStepY: number;
 };
 
 export function BackgroundPanel({
@@ -25,10 +28,13 @@ export function BackgroundPanel({
 	onChange,
 	handleBackgroundFile,
 	handleBackgroundOpacity,
-	handleBackgroundFit,
 	handleBackgroundOffset,
 	commitBackgroundScale,
 	clearBackground,
+	offsetStepX,
+	offsetStepY,
+	scaleStepX,
+	scaleStepY,
 }: Props) {
 	const bg = plot.background;
 	return (
@@ -62,20 +68,12 @@ export function BackgroundPanel({
 				<div className="row-static">{bg.opacity.toFixed(2)}</div>
 			</div>
 			<div className="form-row inline-pair">
-				<div className="row-label">Fit</div>
-				<select className="row-control" value={bg.fit} onChange={handleBackgroundFit} disabled={!bg.src}>
-					<option value="contain">Contain</option>
-					<option value="cover">Cover</option>
-					<option value="stretch">Stretch</option>
-				</select>
-			</div>
-			<div className="form-row inline-pair">
 				<div className="row-label">Offset</div>
 				<label className="mini-label">X</label>
 				<input
 					className="row-control"
 					type="number"
-					step="any"
+					step={offsetStepX}
 					value={bg.offsetX}
 					onChange={handleBackgroundOffset("x")}
 					onMouseDown={e =>
@@ -86,7 +84,8 @@ export function BackgroundPanel({
 								onChange({
 									...plot,
 									background: { ...plot.background, offsetX: val },
-								})
+								}),
+							offsetStepX
 						)
 					}
 					disabled={!bg.src}
@@ -95,7 +94,7 @@ export function BackgroundPanel({
 				<input
 					className="row-control"
 					type="number"
-					step="any"
+					step={offsetStepY}
 					value={bg.offsetY}
 					onChange={handleBackgroundOffset("y")}
 					onMouseDown={e =>
@@ -106,7 +105,8 @@ export function BackgroundPanel({
 								onChange({
 									...plot,
 									background: { ...plot.background, offsetY: val },
-								})
+								}),
+							offsetStepY
 						)
 					}
 					disabled={!bg.src}
@@ -118,7 +118,7 @@ export function BackgroundPanel({
 				<input
 					className="row-control"
 					type="number"
-					step="any"
+					step={scaleStepX}
 					value={scaleDraft.x}
 					onChange={e => setScaleDraft(d => ({ ...d, x: e.target.value }))}
 					onBlur={() => commitBackgroundScale("x")}
@@ -132,7 +132,7 @@ export function BackgroundPanel({
 								setScaleDraft(d => ({ ...d, x: String(clamped) }));
 								commitBackgroundScale("x", clamped);
 							},
-							0.05
+							scaleStepX
 						)
 					}
 					disabled={!bg.src}
@@ -141,7 +141,7 @@ export function BackgroundPanel({
 				<input
 					className="row-control"
 					type="number"
-					step="any"
+					step={scaleStepY}
 					value={scaleDraft.y}
 					onChange={e => setScaleDraft(d => ({ ...d, y: e.target.value }))}
 					onBlur={() => commitBackgroundScale("y")}
@@ -155,7 +155,7 @@ export function BackgroundPanel({
 								setScaleDraft(d => ({ ...d, y: String(clamped) }));
 								commitBackgroundScale("y", clamped);
 							},
-							0.05
+							scaleStepY
 						)
 					}
 					disabled={!bg.src}

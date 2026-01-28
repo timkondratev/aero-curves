@@ -9,7 +9,6 @@ export type BackgroundImage = {
 	naturalWidth: number | null;
 	naturalHeight: number | null;
 	opacity: number;
-	fit: "contain" | "cover" | "stretch";
 	offsetX: number;
 	offsetY: number;
 	scaleX: number;
@@ -65,7 +64,6 @@ const makeDefaultBackground = (): BackgroundImage => ({
 	naturalWidth: null,
 	naturalHeight: null,
 	opacity: 0.6,
-	fit: "contain",
 	offsetX: 0,
 	offsetY: 0,
 	scaleX: 1,
