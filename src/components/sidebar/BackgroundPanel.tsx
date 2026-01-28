@@ -4,16 +4,22 @@ import { clampValue } from "../../utils/geometry";
 import { onEnterBlur, startNumberDrag } from "./numberDrag";
 
 type ScaleDraft = { x: string; y: string };
+type OffsetDraft = { x: string; y: string };
 
 type Props = {
 	plot: PlotState;
+	offsetDraft: OffsetDraft;
+	setOffsetDraft: Dispatch<SetStateAction<OffsetDraft>>;
 	scaleDraft: ScaleDraft;
 	setScaleDraft: Dispatch<SetStateAction<ScaleDraft>>;
 	onChange: (plot: PlotState) => void;
 	handleBackgroundFile: (e: ChangeEvent<HTMLInputElement>) => void;
 	handleBackgroundOpacity: (e: ChangeEvent<HTMLInputElement>) => void;
-	handleBackgroundOffset: (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => void;
+	handleBackgroundOffsetDraft: (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => void;
+	commitBackgroundOffset: (axis: "x" | "y", override?: number) => void;
+	applyBackgroundOffsetTransient: (axis: "x" | "y", val: number) => void;
 	commitBackgroundScale: (axis: "x" | "y", override?: number) => void;
+	applyBackgroundScaleTransient: (axis: "x" | "y", val: number) => void;
 	clearBackground: () => void;
 	offsetStepX: number;
 	offsetStepY: number;
@@ -23,13 +29,17 @@ type Props = {
 
 export function BackgroundPanel({
 	plot,
+	offsetDraft,
+	setOffsetDraft,
 	scaleDraft,
 	setScaleDraft,
-	onChange,
 	handleBackgroundFile,
 	handleBackgroundOpacity,
-	handleBackgroundOffset,
+	handleBackgroundOffsetDraft,
+	commitBackgroundOffset,
+	applyBackgroundOffsetTransient,
 	commitBackgroundScale,
+	applyBackgroundScaleTransient,
 	clearBackground,
 	offsetStepX,
 	offsetStepY,
@@ -74,18 +84,20 @@ export function BackgroundPanel({
 					className="row-control"
 					type="number"
 					step={offsetStepX}
-					value={bg.offsetX}
-					onChange={handleBackgroundOffset("x")}
+					value={offsetDraft.x}
+					onChange={handleBackgroundOffsetDraft("x")}
+					onBlur={() => commitBackgroundOffset("x")}
+					onKeyDown={onEnterBlur}
 					onMouseDown={e =>
 						startNumberDrag(
 							e,
-							() => bg.offsetX,
-							val =>
-								onChange({
-									...plot,
-									background: { ...plot.background, offsetX: val },
-								}),
-							offsetStepX
+							() => parseFloat(offsetDraft.x) || 0,
+							val => {
+								setOffsetDraft(d => ({ ...d, x: String(val) }));
+								applyBackgroundOffsetTransient("x", val);
+							},
+							offsetStepX,
+							val => commitBackgroundOffset("x", val)
 						)
 					}
 					disabled={!bg.src}
@@ -95,18 +107,20 @@ export function BackgroundPanel({
 					className="row-control"
 					type="number"
 					step={offsetStepY}
-					value={bg.offsetY}
-					onChange={handleBackgroundOffset("y")}
+					value={offsetDraft.y}
+					onChange={handleBackgroundOffsetDraft("y")}
+					onBlur={() => commitBackgroundOffset("y")}
+					onKeyDown={onEnterBlur}
 					onMouseDown={e =>
 						startNumberDrag(
 							e,
-							() => bg.offsetY,
-							val =>
-								onChange({
-									...plot,
-									background: { ...plot.background, offsetY: val },
-								}),
-							offsetStepY
+							() => parseFloat(offsetDraft.y) || 0,
+							val => {
+								setOffsetDraft(d => ({ ...d, y: String(val) }));
+								applyBackgroundOffsetTransient("y", val);
+							},
+							offsetStepY,
+							val => commitBackgroundOffset("y", val)
 						)
 					}
 					disabled={!bg.src}
@@ -128,11 +142,12 @@ export function BackgroundPanel({
 							e,
 							() => parseFloat(scaleDraft.x) || 0,
 							val => {
-								const clamped = clampValue(val, [0.1, 10]);
+								const clamped = clampValue(val, [1e-4, 1000]);
 								setScaleDraft(d => ({ ...d, x: String(clamped) }));
-								commitBackgroundScale("x", clamped);
+								applyBackgroundScaleTransient("x", clamped);
 							},
-							scaleStepX
+							scaleStepX,
+							val => commitBackgroundScale("x", val)
 						)
 					}
 					disabled={!bg.src}
@@ -151,11 +166,12 @@ export function BackgroundPanel({
 							e,
 							() => parseFloat(scaleDraft.y) || 0,
 							val => {
-								const clamped = clampValue(val, [0.1, 10]);
+								const clamped = clampValue(val, [1e-4, 1000]);
 								setScaleDraft(d => ({ ...d, y: String(clamped) }));
-								commitBackgroundScale("y", clamped);
+								applyBackgroundScaleTransient("y", clamped);
 							},
-							scaleStepY
+							scaleStepY,
+							val => commitBackgroundScale("y", val)
 						)
 					}
 					disabled={!bg.src}

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Plot } from "./components/Plot";
-import { SideBar } from "./components/SideBar";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { PlotContainer } from "./components/PlotContainer";
+import { SideBarContainer } from "./components/SideBarContainer";
 import { ToolBar } from "./components/ToolBar";
 import { makeInitialState, reducer } from "./state/reducer";
-import type { PlotState, PlotId, AppState } from "./state/reducer";
+import type { PlotState, PlotId, Action } from "./state/reducer";
 import {
 	flipSelectionX,
 	flipSelectionY,
@@ -14,26 +14,24 @@ import {
 	replaceSelectionWithPoints,
 } from "./utils/geometry";
 import { parsePointsFromClipboard, serializePointsForClipboard } from "./utils/clipboard";
+import { AppProvider } from "./state/AppProvider";
+import { useHistoryReducer } from "./hooks/useHistoryReducer";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import "./styles/globals.css";
 
 const HISTORY_LIMIT = 100;
 const MIN_SIDEBAR_WIDTH = 260;
 const MAX_SIDEBAR_WIDTH = 520;
 
-const cloneState = (state: AppState): AppState => {
-	if (typeof structuredClone === "function") {
-		return structuredClone(state);
-	}
-	return JSON.parse(JSON.stringify(state)) as AppState;
-};
-
 function App_() {
-	const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
+	const { state, dispatch, applyChange, dispatchTransient, undo, redo } = useHistoryReducer(
+		reducer,
+		undefined,
+		makeInitialState,
+		{ historyLimit: HISTORY_LIMIT, replaceStateAction: (state): Action => ({ type: "app/replace-state", state }) }
+	);
 	const [sidebarWidth, setSidebarWidth] = useState(320);
 	const lastCopiedRef = useRef<{ x: number; y: number }[] | null>(null);
-	const pastRef = useRef<AppState[]>([]);
-	const futureRef = useRef<AppState[]>([]);
-	const historyBaseRef = useRef<AppState | null>(null);
 	const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
 	const activePlot = useMemo(
@@ -41,32 +39,28 @@ function App_() {
 		[state.plots, state.activePlotId]
 	);
 
-	const replacePlot = (plot: PlotState) => dispatch({ type: "plot/replace", plot });
-	const replacePlotNoHistory = (plot: PlotState) => dispatch({ type: "plot/replace", plot });
+	const replacePlot = useCallback(
+		(plot: PlotState) => dispatch({ type: "plot/replace", plot }),
+		[dispatch]
+	);
 
-	const recordChange = (prev: AppState) => {
-		const stack = pastRef.current.concat(cloneState(prev));
-		const trimmed = stack.length > HISTORY_LIMIT ? stack.slice(stack.length - HISTORY_LIMIT) : stack;
-		pastRef.current = trimmed;
-		futureRef.current = [];
-	};
-
-	const applyChange = (mutate: () => void) => {
-		const snapshot = historyBaseRef.current ?? cloneState(state);
-		mutate();
-		recordChange(snapshot);
-		historyBaseRef.current = null;
-	};
-
-	const handleSetActive = (id: PlotId | null) => dispatch({ type: "app/set-active", id });
-	const handleAddPlot = () => applyChange(() => dispatch({ type: "plot/add" }));
-	const handleDuplicatePlot = (id: PlotId) => applyChange(() => dispatch({ type: "plot/duplicate", id }));
-	const handleRemovePlot = (id: PlotId) => applyChange(() => dispatch({ type: "plot/remove", id }));
-	const handleReplacePlot = (plot: PlotState) => applyChange(() => replacePlot(plot));
-	const handleReplacePlotTransient = (plot: PlotState) => {
-		if (!historyBaseRef.current) historyBaseRef.current = cloneState(state);
-		replacePlotNoHistory(plot);
-	};
+	const handleSetActive = useCallback((id: PlotId | null) => dispatch({ type: "app/set-active", id }), [dispatch]);
+	const handleAddPlot = useCallback(() => applyChange(() => dispatch({ type: "plot/add" })), [applyChange, dispatch]);
+	const handleDuplicatePlot = useCallback(
+		(id: PlotId) => applyChange(() => dispatch({ type: "plot/duplicate", id })),
+		[applyChange, dispatch]
+	);
+	const handleRemovePlot = useCallback(
+		(id: PlotId) => applyChange(() => dispatch({ type: "plot/remove", id })),
+		[applyChange, dispatch]
+	);
+	const handleReplacePlot = useCallback((plot: PlotState) => applyChange(() => replacePlot(plot)), [applyChange, replacePlot]);
+	const handleReplacePlotTransient = useCallback(
+		(plot: PlotState) => {
+			dispatchTransient({ type: "plot/replace", plot });
+		},
+		[dispatchTransient]
+	);
 
 	const updateActivePlot = (updater: (p: PlotState) => PlotState) => {
 		if (!activePlot) return;
@@ -162,7 +156,7 @@ function App_() {
 				if (parsed && parsed.length) {
 					incoming = parsed;
 				}
-			} catch (err) {
+			} catch {
 				// Ignore clipboard read failures and fall back to in-memory copy
 			}
 		}
@@ -175,21 +169,8 @@ function App_() {
 		}));
 	};
 
-	const handleUndo = () => {
-		const prev = pastRef.current.pop();
-		if (!prev) return;
-		futureRef.current = futureRef.current.concat(cloneState(state));
-		dispatch({ type: "app/replace-state", state: prev });
-		historyBaseRef.current = null;
-	};
-
-	const handleRedo = () => {
-		const next = futureRef.current.pop();
-		if (!next) return;
-		pastRef.current = pastRef.current.concat(cloneState(state));
-		dispatch({ type: "app/replace-state", state: next });
-		historyBaseRef.current = null;
-	};
+	const handleUndo = () => undo();
+	const handleRedo = () => redo();
 
 	const handleSidebarResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
 		e.preventDefault();
@@ -214,109 +195,70 @@ function App_() {
 		window.addEventListener("mouseup", onUp);
 	};
 
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			const isFormField = e.target instanceof HTMLElement &&
-				(e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable);
-			if (isFormField) return;
+	useKeyboardShortcuts({
+		onDuplicateLeft: handleDuplicateLeft,
+		onDuplicateRight: handleDuplicateRight,
+		onCopy: handleCopy,
+		onPaste: handlePaste,
+		onUndo: handleUndo,
+		onRedo: handleRedo,
+		onDeleteSelection: handleDeleteSelection,
+	});
 
-			const key = e.key.toLowerCase();
-			const isModifier = e.metaKey || e.ctrlKey;
-
-			if (isModifier && key === "d") {
-				if (e.shiftKey) {
-					e.preventDefault();
-					handleDuplicateLeft();
-					return;
-				}
-
-				e.preventDefault();
-				handleDuplicateRight();
-				return;
-			}
-
-			if (isModifier && key === "c") {
-				e.preventDefault();
-				handleCopy();
-				return;
-			}
-
-			if (isModifier && key === "v") {
-				e.preventDefault();
-				void handlePaste();
-				return;
-			}
-
-			if (isModifier && key === "z") {
-				e.preventDefault();
-				if (e.shiftKey) {
-					handleRedo();
-				} else {
-					handleUndo();
-				}
-				return;
-			}
-
-			if (!isModifier && (key === "delete" || key === "backspace")) {
-				e.preventDefault();
-				handleDeleteSelection();
-				return;
-			}
-		};
-
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [handleDuplicateLeft, handleDuplicateRight, handleCopy, handlePaste, handleDeleteSelection, handleUndo, handleRedo]);
+	const appContextValue = useMemo(
+		() => ({
+			state,
+			activePlot,
+			actions: {
+				setActive: handleSetActive,
+				replacePlot: handleReplacePlot,
+				replacePlotTransient: handleReplacePlotTransient,
+				duplicatePlot: handleDuplicatePlot,
+				removePlot: handleRemovePlot,
+			},
+		}),
+		[activePlot, handleDuplicatePlot, handleRemovePlot, handleReplacePlot, handleReplacePlotTransient, handleSetActive, state]
+	);
 
 	return (
-		<div className="app-shell">
-			<div className="app-main">
-				<ToolBar
-					activePlotId={state.activePlotId}
-					onAddPlot={handleAddPlot}
-					onFlipX={handleFlipX}
-					onFlipY={handleFlipY}
-					onMirrorLeft={handleMirrorLeft}
-					onMirrorRight={handleMirrorRight}
-					onTrim={handleTrim}
-					onDuplicateLeft={handleDuplicateLeft}
-					onDuplicateRight={handleDuplicateRight}
-					onCopy={handleCopy}
-					onPaste={handlePaste}
-					canFlip={canFlip}
-					canMirror={canMirror}
-				/>
+		<AppProvider value={appContextValue}>
+			<div className="app-shell">
+				<div className="app-main">
+					<ToolBar
+						activePlotId={state.activePlotId}
+						onAddPlot={handleAddPlot}
+						onFlipX={handleFlipX}
+						onFlipY={handleFlipY}
+						onMirrorLeft={handleMirrorLeft}
+						onMirrorRight={handleMirrorRight}
+						onTrim={handleTrim}
+						onDuplicateLeft={handleDuplicateLeft}
+						onDuplicateRight={handleDuplicateRight}
+						onCopy={handleCopy}
+						onPaste={handlePaste}
+						canFlip={canFlip}
+						canMirror={canMirror}
+					/>
 
-				<div className="plots-scroll">
-					{state.plots.map(plot => (
-						<Plot
-							key={plot.id}
-							plot={plot}
-							active={plot.id === state.activePlotId}
-							onActivate={() => handleSetActive(plot.id)}
-							onChange={handleReplacePlot}
-							onChangeTransient={handleReplacePlotTransient}
-						/>
-					))}
+					<div className="plots-scroll">
+						{state.plots.map(plot => (
+							<PlotContainer key={plot.id} plot={plot} />
+						))}
+					</div>
+				</div>
+
+				<div className="sidebar-container" style={{ width: sidebarWidth }}>
+					<div
+						className="sidebar-drag-handle"
+						onMouseDown={handleSidebarResizeStart}
+						role="separator"
+						aria-orientation="vertical"
+						aria-label="Resize sidebar"
+					/>
+					<SideBarContainer />
 				</div>
 			</div>
-
-			<div className="sidebar-container" style={{ width: sidebarWidth }}>
-				<div
-					className="sidebar-drag-handle"
-					onMouseDown={handleSidebarResizeStart}
-					role="separator"
-					aria-orientation="vertical"
-					aria-label="Resize sidebar"
-				/>
-				<SideBar
-					plot={activePlot}
-					onChange={handleReplacePlot}
-					onDuplicate={handleDuplicatePlot}
-					onRemove={handleRemovePlot}
-				/>
-			</div>
-		</div>
+		</AppProvider>
 	);
 }
 

@@ -37,7 +37,7 @@ export const parsePointsFromClipboard = (text: string): ClipboardPoint[] | null 
 			points.push({ x, y });
 		}
 		return points.length ? points : null;
-	} catch (err) {
+	} catch {
 		return null;
 	}
 };

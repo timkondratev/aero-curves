@@ -95,12 +95,12 @@ export const buildMonotoneSpline = (
 	xScale: (x: number) => number,
 	yScale: (y: number) => number
 ) => {
-	if (pts.length === 0) return { pathD: "", evaluate: (_x: number) => NaN };
+	if (pts.length === 0) return { pathD: "", evaluate: () => NaN };
 	if (pts.length === 1) {
 		const p = pts[0];
 		return {
 			pathD: `M${xScale(p.x)},${yScale(p.y)}`,
-			evaluate: (_x: number) => p.y,
+			evaluate: () => p.y,
 		};
 	}
 	const tangents = computeTangents(pts);

@@ -1,17 +1,27 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useState } from "react";
 import { onEnterBlur, startNumberDrag } from "./numberDrag";
 
 type CoordDraft = { x: string; y: string };
 
 type Props = {
-	coordDraft: CoordDraft;
-	setCoordDraft: Dispatch<SetStateAction<CoordDraft>>;
 	center: { x: number; y: number } | null;
 	selectedCount: number;
 	commitCoord: (axis: "x" | "y", override?: number) => void;
 };
 
-export function SelectionPanel({ coordDraft, setCoordDraft, center, selectedCount, commitCoord }: Props) {
+export function SelectionPanel({ center, selectedCount, commitCoord }: Props) {
+	const [coordDraft, setCoordDraft] = useState<CoordDraft>(() => ({
+		x: center ? String(center.x) : "",
+		y: center ? String(center.y) : "",
+	}));
+
+	const commitDraft = (axis: "x" | "y") => {
+		const raw = axis === "x" ? coordDraft.x : coordDraft.y;
+		const val = parseFloat(raw);
+		if (Number.isNaN(val)) return;
+		commitCoord(axis, val);
+	};
+
 	return (
 		<div className="panel-section">
 			<div className="section-title">SELECTION</div>
@@ -23,7 +33,7 @@ export function SelectionPanel({ coordDraft, setCoordDraft, center, selectedCoun
 					type="number"
 					value={coordDraft.x}
 					onChange={e => setCoordDraft(d => ({ ...d, x: e.target.value }))}
-					onBlur={() => commitCoord("x")}
+					onBlur={() => commitDraft("x")}
 					onKeyDown={onEnterBlur}
 					onMouseDown={e =>
 						startNumberDrag(
@@ -44,7 +54,7 @@ export function SelectionPanel({ coordDraft, setCoordDraft, center, selectedCoun
 					type="number"
 					value={coordDraft.y}
 					onChange={e => setCoordDraft(d => ({ ...d, y: e.target.value }))}
-					onBlur={() => commitCoord("y")}
+					onBlur={() => commitDraft("y")}
 					onKeyDown={onEnterBlur}
 					onMouseDown={e =>
 						startNumberDrag(

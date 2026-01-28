@@ -1,7 +1,9 @@
-name: Deploy to GitHub Pages
+name: CI + Pages
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
 
 permissions:
@@ -14,39 +16,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  checks:
+    name: Build & Lint
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
 
   deploy:
-    needs: build
+    name: Deploy to GitHub Pages
+    needs: checks
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
 
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Deploy
-        id: deployment
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deployment
         uses: actions/deploy-pages@v4
