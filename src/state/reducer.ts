@@ -40,6 +40,7 @@ export type AppState = {
 
 export type Action =
 	| { type: "plot/add" }
+	| { type: "plot/duplicate"; id: PlotId }
 	| { type: "plot/remove"; id: PlotId }
 	| { type: "plot/replace"; plot: PlotState }
 	| { type: "app/set-active"; id: PlotId | null }
@@ -118,6 +119,20 @@ export const reducer = (state: AppState, action: Action): AppState => {
 		case "plot/add": {
 			const next = makePlot(`curve_${state.plots.length + 1}`);
 			return { plots: [...state.plots, next], activePlotId: next.id };
+		}
+		case "plot/duplicate": {
+			const source = state.plots.find(p => p.id === action.id);
+			if (!source) return state;
+			const cloneId = nextId();
+			const clone: PlotState = {
+				...source,
+				id: cloneId,
+				name: `${source.name}_copy`,
+				selection: [],
+				brush: null,
+				points: source.points.map(pt => ({ ...pt, id: nextId() })),
+			};
+			return { plots: [...state.plots, clone], activePlotId: cloneId };
 		}
 		case "plot/remove": {
 			const remaining = state.plots.filter(p => p.id !== action.id);

@@ -12,9 +12,11 @@ type Props = {
 	setDomainDraft: Dispatch<SetStateAction<DomainDraft>>;
 	commitName: () => void;
 	commitDomain: (axis: "x" | "y", index: 0 | 1, override?: number) => void;
+	onDuplicate?: () => void;
+	onRemove?: () => void;
 };
 
-export function PlotPanel({ plot, nameDraft, setNameDraft, domainDraft, setDomainDraft, commitName, commitDomain }: Props) {
+export function PlotPanel({ plot, nameDraft, setNameDraft, domainDraft, setDomainDraft, commitName, commitDomain, onDuplicate, onRemove }: Props) {
 	return (
 		<div className="panel-section">
 			<div className="section-title">PLOT</div>
@@ -28,6 +30,23 @@ export function PlotPanel({ plot, nameDraft, setNameDraft, domainDraft, setDomai
 					onKeyDown={onEnterBlur}
 				/>
 			</div>
+			{(onDuplicate || onRemove) && (
+				<div className="form-row">
+					<div className="row-label">Actions</div>
+					<div className="row-control" style={{ display: "flex", gap: 8 }}>
+						{onDuplicate && (
+							<button className="btn" onClick={onDuplicate} style={{ flex: 1 }}>
+								Duplicate
+							</button>
+						)}
+						{onRemove && (
+							<button className="btn" onClick={onRemove} style={{ flex: 1 }}>
+								Remove
+							</button>
+						)}
+					</div>
+				</div>
+			)}
 			<div className="form-row inline-pair">
 				<div className="row-label">Domain X</div>
 				<input

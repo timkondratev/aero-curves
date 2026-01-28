@@ -60,6 +60,7 @@ function App_() {
 
 	const handleSetActive = (id: PlotId | null) => dispatch({ type: "app/set-active", id });
 	const handleAddPlot = () => applyChange(() => dispatch({ type: "plot/add" }));
+	const handleDuplicatePlot = (id: PlotId) => applyChange(() => dispatch({ type: "plot/duplicate", id }));
 	const handleRemovePlot = (id: PlotId) => applyChange(() => dispatch({ type: "plot/remove", id }));
 	const handleReplacePlot = (plot: PlotState) => applyChange(() => replacePlot(plot));
 	const handleReplacePlotTransient = (plot: PlotState) => {
@@ -295,7 +296,6 @@ function App_() {
 							onActivate={() => handleSetActive(plot.id)}
 							onChange={handleReplacePlot}
 							onChangeTransient={handleReplacePlotTransient}
-							onRemove={() => handleRemovePlot(plot.id)}
 						/>
 					))}
 				</div>
@@ -309,7 +309,12 @@ function App_() {
 					aria-orientation="vertical"
 					aria-label="Resize sidebar"
 				/>
-				<SideBar plot={activePlot} onChange={handleReplacePlot} />
+				<SideBar
+					plot={activePlot}
+					onChange={handleReplacePlot}
+					onDuplicate={handleDuplicatePlot}
+					onRemove={handleRemovePlot}
+				/>
 			</div>
 		</div>
 	);

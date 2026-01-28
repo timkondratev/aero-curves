@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import type { PlotState, PointId } from "../state/reducer";
+import type { PlotId, PlotState, PointId } from "../state/reducer";
 import { clampValue } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
 import { SelectionPanel } from "./sidebar/SelectionPanel";
@@ -11,9 +11,11 @@ import { DataPanel } from "./sidebar/DataPanel";
 type Props = {
     plot: PlotState | null;
     onChange: (plot: PlotState) => void;
+    onDuplicate?: (id: PlotId) => void;
+    onRemove?: (id: PlotId) => void;
 };
 
-export function SideBar({ plot, onChange }: Props) {
+export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
     if (!plot) {
         return <div className="plot-meta">Select a plot to edit.</div>;
     }
@@ -264,6 +266,17 @@ export function SideBar({ plot, onChange }: Props) {
 
     return (
         <div className="sidebar-form">
+            <PlotPanel
+                plot={plot}
+                nameDraft={nameDraft}
+                setNameDraft={setNameDraft}
+                domainDraft={domainDraft}
+                setDomainDraft={setDomainDraft}
+                commitName={commitName}
+                commitDomain={commitDomain}
+                onDuplicate={onDuplicate ? () => onDuplicate(plot.id) : undefined}
+                onRemove={onRemove ? () => onRemove(plot.id) : undefined}
+            />
             <SelectionPanel
                 coordDraft={coordDraft}
                 setCoordDraft={setCoordDraft}
@@ -278,15 +291,6 @@ export function SideBar({ plot, onChange }: Props) {
                 commitSnapPrecision={commitSnapPrecision}
                 handleSnapToggle={handleSnapToggle}
                 handleShowGridToggle={handleShowGridToggle}
-            />
-            <PlotPanel
-                plot={plot}
-                nameDraft={nameDraft}
-                setNameDraft={setNameDraft}
-                domainDraft={domainDraft}
-                setDomainDraft={setDomainDraft}
-                commitName={commitName}
-                commitDomain={commitDomain}
             />
             <BackgroundPanel
                 plot={plot}

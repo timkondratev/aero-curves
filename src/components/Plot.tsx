@@ -19,10 +19,9 @@ type Props = {
 	onActivate: () => void;
 	onChange: (plot: PlotState) => void;
 	onChangeTransient: (plot: PlotState) => void;
-	onRemove?: () => void;
 };
 
-export function Plot({ plot, active, onActivate, onChange, onChangeTransient, onRemove }: Props) {
+export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: Props) {
 	const plotRef = useRef(plot);
 	const frameRef = useRef<HTMLDivElement | null>(null);
 	const [frameWidth, setFrameWidth] = useState(720);
@@ -348,11 +347,6 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient, on
 			<div className="plot-header">
 				<strong>{plot.name}</strong>
 				<span className="plot-meta">points: {plot.points.length}</span>
-				{onRemove && (
-					<button className="btn" onClick={onRemove} style={{ marginLeft: "auto" }}>
-						Remove
-					</button>
-				)}
 			</div>
 
 			<div ref={frameRef} className="plot-frame">
