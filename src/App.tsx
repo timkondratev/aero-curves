@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { PlotContainer } from "./components/PlotContainer";
 import { SideBarContainer } from "./components/SideBarContainer";
 import { ToolBar } from "./components/ToolBar";
@@ -39,16 +39,28 @@ function App_() {
 		[state.plots, state.activePlotId]
 	);
 
-	const replacePlot = (plot: PlotState) => dispatch({ type: "plot/replace", plot });
+	const replacePlot = useCallback(
+		(plot: PlotState) => dispatch({ type: "plot/replace", plot }),
+		[dispatch]
+	);
 
-	const handleSetActive = (id: PlotId | null) => dispatch({ type: "app/set-active", id });
-	const handleAddPlot = () => applyChange(() => dispatch({ type: "plot/add" }));
-	const handleDuplicatePlot = (id: PlotId) => applyChange(() => dispatch({ type: "plot/duplicate", id }));
-	const handleRemovePlot = (id: PlotId) => applyChange(() => dispatch({ type: "plot/remove", id }));
-	const handleReplacePlot = (plot: PlotState) => applyChange(() => replacePlot(plot));
-	const handleReplacePlotTransient = (plot: PlotState) => {
-		dispatchTransient({ type: "plot/replace", plot });
-	};
+	const handleSetActive = useCallback((id: PlotId | null) => dispatch({ type: "app/set-active", id }), [dispatch]);
+	const handleAddPlot = useCallback(() => applyChange(() => dispatch({ type: "plot/add" })), [applyChange, dispatch]);
+	const handleDuplicatePlot = useCallback(
+		(id: PlotId) => applyChange(() => dispatch({ type: "plot/duplicate", id })),
+		[applyChange, dispatch]
+	);
+	const handleRemovePlot = useCallback(
+		(id: PlotId) => applyChange(() => dispatch({ type: "plot/remove", id })),
+		[applyChange, dispatch]
+	);
+	const handleReplacePlot = useCallback((plot: PlotState) => applyChange(() => replacePlot(plot)), [applyChange, replacePlot]);
+	const handleReplacePlotTransient = useCallback(
+		(plot: PlotState) => {
+			dispatchTransient({ type: "plot/replace", plot });
+		},
+		[dispatchTransient]
+	);
 
 	const updateActivePlot = (updater: (p: PlotState) => PlotState) => {
 		if (!activePlot) return;
@@ -144,7 +156,7 @@ function App_() {
 				if (parsed && parsed.length) {
 					incoming = parsed;
 				}
-			} catch (err) {
+			} catch {
 				// Ignore clipboard read failures and fall back to in-memory copy
 			}
 		}

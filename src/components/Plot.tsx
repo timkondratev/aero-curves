@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { scaleLinear } from "d3";
 import type { PointerEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { PlotState, PointId } from "../state/reducer";
@@ -105,7 +105,9 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 
 	const selection = useMemo(() => new Set(plot.selection), [plot.selection]);
 
-	plotRef.current = plot;
+	useEffect(() => {
+		plotRef.current = plot;
+	}, [plot]);
 
 	const updatePlot = (partial: Partial<PlotState>) => {
 		const next = { ...plotRef.current, ...partial } as PlotState;
@@ -174,7 +176,11 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 			setSelection([id]);
 		} else if (withModifier) {
 			const next = new Set(selection);
-			next.has(id) ? next.delete(id) : next.add(id);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
 			setSelection([...next]);
 		}
 
