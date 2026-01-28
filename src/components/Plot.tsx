@@ -9,7 +9,6 @@ import { buildMonotonePath } from "../utils/monotone";
 const MARGIN = { top: 20, right: 20, bottom: 32, left: 50 } as const;
 const MIN_POINTS = 2;
 const BRUSH_ACTIVATE_PX = 3;
-
 let pointIdCounter = 1;
 const nextPointId = () => `pt_${pointIdCounter++}`;
 
@@ -25,7 +24,7 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 	const plotRef = useRef(plot);
 	const frameRef = useRef<HTMLDivElement | null>(null);
 	const [frameWidth, setFrameWidth] = useState(720);
-	const [height, setHeight] = useState(360);
+	const [frameHeight, setFrameHeight] = useState(360);
 	const brushStart = useRef<number | null>(null);
 	const brushActive = useRef(false);
 	const backgroundPointerActive = useRef(false);
@@ -41,7 +40,7 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 		const updateSize = (entry?: ResizeObserverEntry) => {
 			const rect = entry?.contentRect ?? node.getBoundingClientRect();
 			setFrameWidth(rect.width);
-			setHeight(rect.height);
+			setFrameHeight(rect.height);
 		};
 		const observer = new ResizeObserver(entries => {
 			const entry = entries[0];
@@ -52,8 +51,11 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 		return () => observer.disconnect();
 	}, []);
 
-	const innerWidth = Math.max(200, frameWidth - MARGIN.left - MARGIN.right);
-	const innerHeight = Math.max(120, height - MARGIN.top - MARGIN.bottom);
+	const viewBoxWidth = frameWidth || 1;
+	const viewBoxHeight = frameHeight || 1;
+	const innerWidth = viewBoxWidth - MARGIN.left - MARGIN.right;
+	const innerHeight = viewBoxHeight - MARGIN.top - MARGIN.bottom;
+
 
 	const xScale = useMemo(
 		() => scaleLinear().domain(plot.domainX).range([0, innerWidth]),
@@ -255,7 +257,12 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 	) => {
 		const svg = (e.currentTarget.ownerSVGElement ?? e.currentTarget) as SVGSVGElement;
 		const rect = svg.getBoundingClientRect();
-		return { x: e.clientX - rect.left - MARGIN.left, y: e.clientY - rect.top - MARGIN.top };
+		const scaleX = viewBoxWidth / rect.width;
+		const scaleY = viewBoxHeight / rect.height;
+		return {
+			x: (e.clientX - rect.left) * scaleX - MARGIN.left,
+			y: (e.clientY - rect.top) * scaleY - MARGIN.top,
+		};
 	};
 
 	const renderBrush = () => {
@@ -278,41 +285,34 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 	const renderBackgroundImage = () => {
 		const bg = plot.background;
 		if (!bg.src) return null;
-		const imgW = bg.naturalWidth ?? innerWidth;
-		const imgH = bg.naturalHeight ?? innerHeight;
-		const ratio = imgW > 0 && imgH > 0 ? imgW / imgH : 1;
 		const domainSpanX = plot.domainX[1] - plot.domainX[0];
 		const domainSpanY = plot.domainY[1] - plot.domainY[0];
 		const pxPerDomainX = innerWidth / domainSpanX;
 		const pxPerDomainY = innerHeight / domainSpanY;
+		const width = innerWidth;
+		const height = innerHeight;
 
-		// First, compute the contain-fit size in pixel space
-		const frameRatioPx = innerWidth / innerHeight;
-		const containWidthPx = frameRatioPx > ratio ? innerHeight * ratio : innerWidth;
-		const containHeightPx = frameRatioPx > ratio ? innerHeight : innerWidth / ratio;
+		// Convert domain offsets to pixel offsets; Y domain grows upward so invert for screen coords
+		const offsetPxX = bg.offsetX * pxPerDomainX;
+		const offsetPxY = -bg.offsetY * pxPerDomainY;
 
-		// Convert that pixel size into domain units, then apply user scaling
-		const baseDomainWidth = containWidthPx / pxPerDomainX;
-		const baseDomainHeight = containHeightPx / pxPerDomainY;
-		const finalDomainWidth = baseDomainWidth * bg.scaleX;
-		const finalDomainHeight = baseDomainHeight * bg.scaleY;
-		const centerDomainX = (plot.domainX[0] + plot.domainX[1]) / 2 + bg.offsetX;
-		const centerDomainY = (plot.domainY[0] + plot.domainY[1]) / 2 + bg.offsetY;
-		const width = finalDomainWidth * pxPerDomainX;
-		const height = finalDomainHeight * pxPerDomainY;
-		const x = xScale(centerDomainX) - width / 2;
-		const y = yScale(centerDomainY) - height / 2;
+		const centerPxX = innerWidth / 2 + offsetPxX;
+		const centerPxY = innerHeight / 2 + offsetPxY;
+		const x = -width / 2;
+		const y = -height / 2;
 		return (
-			<image
-				href={bg.src}
-				x={x}
-				y={y}
-				width={width}
-				height={height}
-				opacity={bg.opacity}
-				preserveAspectRatio="none"
-				style={{ pointerEvents: "none" }}
-			/>
+			<g transform={`translate(${centerPxX},${centerPxY}) scale(${bg.scaleX},${bg.scaleY})`}>
+				<image
+					href={bg.src}
+					x={x}
+					y={y}
+					width={width}
+					height={height}
+					opacity={bg.opacity}
+					preserveAspectRatio="none"
+					style={{ pointerEvents: "none" }}
+				/>
+			</g>
 		);
 	};
 
@@ -346,8 +346,8 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 			<div ref={frameRef} className="plot-frame">
 				<svg
 					className="plot-svg"
-					width={frameWidth}
-					height={height}
+					viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+					preserveAspectRatio="none"
 					onPointerDown={handleBackgroundPointerDown}
 					onPointerMove={handleBackgroundPointerMove}
 					onPointerUp={handleBackgroundPointerUp}

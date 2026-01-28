@@ -232,7 +232,7 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
         const raw = axis === "x" ? scaleDraft.x : scaleDraft.y;
         const val = override ?? parseFloat(raw);
         if (Number.isNaN(val)) return;
-        const clamped = clampValue(val, [0.1, 10]);
+        const clamped = clampValue(val, [1e-4, 1000]);
         setScaleDraft(d => ({ ...d, [axis]: String(clamped) }));
         onChange({
             ...plot,
@@ -248,10 +248,10 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
     const spanY = plot.domainY[1] - plot.domainY[0];
     const offsetStepX = Math.max(spanX / 1000, 1e-6);
     const offsetStepY = Math.max(spanY / 1000, 1e-6);
-    const minSpan = Math.min(spanX, spanY);
-    const scaleStepBase = Math.max(minSpan / 100, 0.001);
-    const scaleStepX = Math.min(scaleStepBase, 0.2);
-    const scaleStepY = Math.min(scaleStepBase, 0.2);
+    const currentScaleX = parseFloat(scaleDraft.x) || plot.background.scaleX || 1;
+    const currentScaleY = parseFloat(scaleDraft.y) || plot.background.scaleY || 1;
+    const scaleStepX = Math.max(currentScaleX / 1000, 1e-5);
+    const scaleStepY = Math.max(currentScaleY / 1000, 1e-5);
 
     const clearBackground = () => {
         onChange({

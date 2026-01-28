@@ -6,7 +6,7 @@
 	--radius-2: 6px;
 	--border: 1px solid #ccc;
 	--border-transparent: 1px solid transparent;
-    --border-active: 1px solid #000;
+	--border-active: 1px solid #000;
 	--panel-bg: #f1f1f1;
 	--accent: #1976d2;
 	--muted: #666;
@@ -44,14 +44,14 @@ button {
 	padding: 0 12px;
 	line-height: 1.2;
 
-    border-radius: var(--radius-1);
+	border-radius: var(--radius-1);
 	border: var(--border);
 	cursor: pointer;
 }
 
 /*on button click, change border color*/
 button:active {
-    border-color: var(--border-active);
+	border-color: var(--border-active);
 }
 
 input {
@@ -162,10 +162,10 @@ input[type="radio"] {
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-2);
-	user-select: none;      /* standard */
-	-webkit-user-select: none; /* Safari/Chrome */
-	-moz-user-select: none; /* Firefox */
-	-ms-user-select: none;  /* IE/Edge */
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
 }
 
 .plot-card.is-active {
@@ -188,6 +188,8 @@ input[type="radio"] {
 
 .plot-svg {
 	display: block;
+	width: 100%;
+	height: 100%;
 	user-select: none;
 	touch-action: none;
 }
