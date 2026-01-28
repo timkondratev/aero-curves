@@ -29,8 +29,15 @@ export function DataPanel({ plot, onChange }: Props) {
 		const sorted = [...plot.points].sort((a, b) => a.x - b.x);
 		const { evaluate } = buildMonotoneSpline(sorted, x => x, y => y);
 		const [x0, x1] = plot.domainX;
-		const n = sorted.length;
-		const xs = Array.from({ length: n }, (_, i) => x0 + ((x1 - x0) * i) / (n - 1));
+		const span = x1 - x0;
+		const step = span > 0 && plot.snapPrecisionX > 0 ? plot.snapPrecisionX : span / (sorted.length - 1 || 1);
+		if (step <= 0) return;
+		const xs: number[] = [];
+		for (let x = x0, i = 0; x <= x1 + 1e-9 && xs.length < 2000; x += step, i++) {
+			const snapped = parseFloat(x.toFixed(8));
+			xs.push(snapped);
+		}
+		if (xs[xs.length - 1] < x1 && xs.length < 2000) xs.push(x1);
 		const nextPoints = xs.map((x, i) => {
 			const y = clampValue(evaluate(x), plot.domainY);
 			const id = sorted[i]?.id ?? `pt_norm_${i}`;
