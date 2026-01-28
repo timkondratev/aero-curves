@@ -170,7 +170,7 @@ export const replaceSelectionWithPoints = (
 		return { points, selection: Array.from(selection) };
 	}
 
-	const { first, last } = findSelectionBounds(points, selection);
+	const { first } = findSelectionBounds(points, selection);
 	if (first === -1) {
 		return { points, selection: Array.from(selection) };
 	}

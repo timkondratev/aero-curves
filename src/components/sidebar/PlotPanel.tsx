@@ -16,7 +16,7 @@ type Props = {
 	onRemove?: () => void;
 };
 
-export function PlotPanel({ plot, nameDraft, setNameDraft, domainDraft, setDomainDraft, commitName, commitDomain, onDuplicate, onRemove }: Props) {
+export function PlotPanel({ nameDraft, setNameDraft, domainDraft, setDomainDraft, commitName, commitDomain, onDuplicate, onRemove }: Props) {
 	return (
 		<div className="panel-section">
 			<div className="section-title">PLOT</div>
