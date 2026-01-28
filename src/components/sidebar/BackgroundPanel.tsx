@@ -4,15 +4,19 @@ import { clampValue } from "../../utils/geometry";
 import { onEnterBlur, startNumberDrag } from "./numberDrag";
 
 type ScaleDraft = { x: string; y: string };
+type OffsetDraft = { x: string; y: string };
 
 type Props = {
 	plot: PlotState;
+	offsetDraft: OffsetDraft;
+	setOffsetDraft: Dispatch<SetStateAction<OffsetDraft>>;
 	scaleDraft: ScaleDraft;
 	setScaleDraft: Dispatch<SetStateAction<ScaleDraft>>;
 	onChange: (plot: PlotState) => void;
 	handleBackgroundFile: (e: ChangeEvent<HTMLInputElement>) => void;
 	handleBackgroundOpacity: (e: ChangeEvent<HTMLInputElement>) => void;
-	handleBackgroundOffset: (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => void;
+	handleBackgroundOffsetDraft: (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => void;
+	commitBackgroundOffset: (axis: "x" | "y", override?: number) => void;
 	commitBackgroundScale: (axis: "x" | "y", override?: number) => void;
 	clearBackground: () => void;
 	offsetStepX: number;
@@ -23,12 +27,15 @@ type Props = {
 
 export function BackgroundPanel({
 	plot,
+	offsetDraft,
+	setOffsetDraft,
 	scaleDraft,
 	setScaleDraft,
 	onChange,
 	handleBackgroundFile,
 	handleBackgroundOpacity,
-	handleBackgroundOffset,
+	handleBackgroundOffsetDraft,
+	commitBackgroundOffset,
 	commitBackgroundScale,
 	clearBackground,
 	offsetStepX,
@@ -74,17 +81,18 @@ export function BackgroundPanel({
 					className="row-control"
 					type="number"
 					step={offsetStepX}
-					value={bg.offsetX}
-					onChange={handleBackgroundOffset("x")}
+					value={offsetDraft.x}
+					onChange={handleBackgroundOffsetDraft("x")}
+					onBlur={() => commitBackgroundOffset("x")}
+					onKeyDown={onEnterBlur}
 					onMouseDown={e =>
 						startNumberDrag(
 							e,
-							() => bg.offsetX,
-							val =>
-								onChange({
-									...plot,
-									background: { ...plot.background, offsetX: val },
-								}),
+							() => parseFloat(offsetDraft.x) || 0,
+							val => {
+								setOffsetDraft(d => ({ ...d, x: String(val) }));
+								commitBackgroundOffset("x", val);
+							},
 							offsetStepX
 						)
 					}
@@ -95,17 +103,18 @@ export function BackgroundPanel({
 					className="row-control"
 					type="number"
 					step={offsetStepY}
-					value={bg.offsetY}
-					onChange={handleBackgroundOffset("y")}
+					value={offsetDraft.y}
+					onChange={handleBackgroundOffsetDraft("y")}
+					onBlur={() => commitBackgroundOffset("y")}
+					onKeyDown={onEnterBlur}
 					onMouseDown={e =>
 						startNumberDrag(
 							e,
-							() => bg.offsetY,
-							val =>
-								onChange({
-									...plot,
-									background: { ...plot.background, offsetY: val },
-								}),
+							() => parseFloat(offsetDraft.y) || 0,
+							val => {
+								setOffsetDraft(d => ({ ...d, y: String(val) }));
+								commitBackgroundOffset("y", val);
+							},
 							offsetStepY
 						)
 					}

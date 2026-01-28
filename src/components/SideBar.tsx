@@ -38,6 +38,10 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
 
     const [nameDraft, setNameDraft] = useState(plot.name);
     const [coordDraft, setCoordDraft] = useState<{ x: string; y: string }>({ x: center ? String(center.x) : "", y: center ? String(center.y) : "" });
+    const [offsetDraft, setOffsetDraft] = useState<{ x: string; y: string }>({
+        x: String(plot.background.offsetX),
+        y: String(plot.background.offsetY),
+    });
     const [domainDraft, setDomainDraft] = useState<{ x0: string; x1: string; y0: string; y1: string }>({
         x0: String(plot.domainX[0]),
         x1: String(plot.domainX[1]),
@@ -63,6 +67,7 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
         });
         setStepDraft({ x: String(plot.snapPrecisionX), y: String(plot.snapPrecisionY) });
         setScaleDraft({ x: String(plot.background.scaleX), y: String(plot.background.scaleY) });
+        setOffsetDraft({ x: String(plot.background.offsetX), y: String(plot.background.offsetY) });
     }, [plot]);
 
     useEffect(() => {
@@ -215,9 +220,16 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
         onChange({ ...plot, background: { ...plot.background, opacity } });
     };
 
-    const handleBackgroundOffset = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
-        const val = parseFloat(e.target.value);
+    const handleBackgroundOffsetDraft = (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => {
+        const next = e.target.value;
+        setOffsetDraft(d => ({ ...d, [axis]: next }));
+    };
+
+    const commitBackgroundOffset = (axis: "x" | "y", override?: number) => {
+        const raw = axis === "x" ? offsetDraft.x : offsetDraft.y;
+        const val = override ?? parseFloat(raw);
         if (Number.isNaN(val)) return;
+        setOffsetDraft(d => ({ ...d, [axis]: String(val) }));
         onChange({
             ...plot,
             background: {
@@ -298,12 +310,15 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
             />
             <BackgroundPanel
                 plot={plot}
+                offsetDraft={offsetDraft}
+                setOffsetDraft={setOffsetDraft}
                 scaleDraft={scaleDraft}
                 setScaleDraft={setScaleDraft}
                 onChange={onChange}
                 handleBackgroundFile={handleBackgroundFile}
                 handleBackgroundOpacity={handleBackgroundOpacity}
-                handleBackgroundOffset={handleBackgroundOffset}
+                handleBackgroundOffsetDraft={handleBackgroundOffsetDraft}
+                commitBackgroundOffset={commitBackgroundOffset}
                 commitBackgroundScale={commitBackgroundScale}
                 clearBackground={clearBackground}
                 offsetStepX={offsetStepX}
