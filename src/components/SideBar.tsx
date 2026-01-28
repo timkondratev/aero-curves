@@ -11,11 +11,12 @@ import { DataPanel } from "./sidebar/DataPanel";
 type Props = {
     plot: PlotState | null;
     onChange: (plot: PlotState) => void;
+    onChangeTransient?: (plot: PlotState) => void;
     onDuplicate?: (id: PlotId) => void;
     onRemove?: (id: PlotId) => void;
 };
 
-export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
+export function SideBar({ plot, onChange, onChangeTransient, onDuplicate, onRemove }: Props) {
     if (!plot) {
         return <div className="plot-meta">Select a plot to edit.</div>;
     }
@@ -88,9 +89,13 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
         const value = override ?? parseFloat(draftVal);
         if (Number.isNaN(value)) return;
         if (axis === "x") {
+            const current = index === 0 ? plot.domainX[0] : plot.domainX[1];
+            if (value === current) return;
             const next: PlotState = { ...plot, domainX: index === 0 ? [value, plot.domainX[1]] : [plot.domainX[0], value] };
             onChange(next);
         } else {
+            const current = index === 0 ? plot.domainY[0] : plot.domainY[1];
+            if (value === current) return;
             const next: PlotState = { ...plot, domainY: index === 0 ? [value, plot.domainY[1]] : [plot.domainY[0], value] };
             onChange(next);
         }
@@ -112,6 +117,8 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
         const draftVal = axis === "x" ? stepDraft.x : stepDraft.y;
         const value = override ?? parseFloat(draftVal);
         if (Number.isNaN(value) || value <= 0) return;
+        const current = axis === "x" ? plot.snapPrecisionX : plot.snapPrecisionY;
+        if (value === current) return;
         const next: PlotState = axis === "x" ? { ...plot, snapPrecisionX: value } : { ...plot, snapPrecisionY: value };
         onChange(next);
     };
@@ -229,6 +236,8 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
         const raw = axis === "x" ? offsetDraft.x : offsetDraft.y;
         const val = override ?? parseFloat(raw);
         if (Number.isNaN(val)) return;
+        const current = axis === "x" ? plot.background.offsetX : plot.background.offsetY;
+        if (val === current) return;
         setOffsetDraft(d => ({ ...d, [axis]: String(val) }));
         onChange({
             ...plot,
@@ -245,8 +254,35 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
         const val = override ?? parseFloat(raw);
         if (Number.isNaN(val)) return;
         const clamped = clampValue(val, [1e-4, 1000]);
+        const current = axis === "x" ? plot.background.scaleX : plot.background.scaleY;
+        if (clamped === current) return;
         setScaleDraft(d => ({ ...d, [axis]: String(clamped) }));
         onChange({
+            ...plot,
+            background: {
+                ...plot.background,
+                scaleX: axis === "x" ? clamped : plot.background.scaleX,
+                scaleY: axis === "y" ? clamped : plot.background.scaleY,
+            },
+        });
+    };
+
+    const applyBackgroundOffsetTransient = (axis: "x" | "y", val: number) => {
+        const apply = onChangeTransient ?? onChange;
+        apply({
+            ...plot,
+            background: {
+                ...plot.background,
+                offsetX: axis === "x" ? val : plot.background.offsetX,
+                offsetY: axis === "y" ? val : plot.background.offsetY,
+            },
+        });
+    };
+
+    const applyBackgroundScaleTransient = (axis: "x" | "y", val: number) => {
+        const clamped = clampValue(val, [1e-4, 1000]);
+        const apply = onChangeTransient ?? onChange;
+        apply({
             ...plot,
             background: {
                 ...plot.background,
@@ -319,7 +355,9 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
                 handleBackgroundOpacity={handleBackgroundOpacity}
                 handleBackgroundOffsetDraft={handleBackgroundOffsetDraft}
                 commitBackgroundOffset={commitBackgroundOffset}
+                applyBackgroundOffsetTransient={applyBackgroundOffsetTransient}
                 commitBackgroundScale={commitBackgroundScale}
+                applyBackgroundScaleTransient={applyBackgroundScaleTransient}
                 clearBackground={clearBackground}
                 offsetStepX={offsetStepX}
                 offsetStepY={offsetStepY}

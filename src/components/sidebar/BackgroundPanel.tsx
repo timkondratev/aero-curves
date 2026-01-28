@@ -17,7 +17,9 @@ type Props = {
 	handleBackgroundOpacity: (e: ChangeEvent<HTMLInputElement>) => void;
 	handleBackgroundOffsetDraft: (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => void;
 	commitBackgroundOffset: (axis: "x" | "y", override?: number) => void;
+	applyBackgroundOffsetTransient: (axis: "x" | "y", val: number) => void;
 	commitBackgroundScale: (axis: "x" | "y", override?: number) => void;
+	applyBackgroundScaleTransient: (axis: "x" | "y", val: number) => void;
 	clearBackground: () => void;
 	offsetStepX: number;
 	offsetStepY: number;
@@ -31,12 +33,13 @@ export function BackgroundPanel({
 	setOffsetDraft,
 	scaleDraft,
 	setScaleDraft,
-	onChange,
 	handleBackgroundFile,
 	handleBackgroundOpacity,
 	handleBackgroundOffsetDraft,
 	commitBackgroundOffset,
+	applyBackgroundOffsetTransient,
 	commitBackgroundScale,
+	applyBackgroundScaleTransient,
 	clearBackground,
 	offsetStepX,
 	offsetStepY,
@@ -91,9 +94,10 @@ export function BackgroundPanel({
 							() => parseFloat(offsetDraft.x) || 0,
 							val => {
 								setOffsetDraft(d => ({ ...d, x: String(val) }));
-								commitBackgroundOffset("x", val);
+								applyBackgroundOffsetTransient("x", val);
 							},
-							offsetStepX
+							offsetStepX,
+							val => commitBackgroundOffset("x", val)
 						)
 					}
 					disabled={!bg.src}
@@ -113,9 +117,10 @@ export function BackgroundPanel({
 							() => parseFloat(offsetDraft.y) || 0,
 							val => {
 								setOffsetDraft(d => ({ ...d, y: String(val) }));
-								commitBackgroundOffset("y", val);
+								applyBackgroundOffsetTransient("y", val);
 							},
-							offsetStepY
+							offsetStepY,
+							val => commitBackgroundOffset("y", val)
 						)
 					}
 					disabled={!bg.src}
@@ -137,11 +142,12 @@ export function BackgroundPanel({
 							e,
 							() => parseFloat(scaleDraft.x) || 0,
 							val => {
-								const clamped = clampValue(val, [0.1, 10]);
+								const clamped = clampValue(val, [1e-4, 1000]);
 								setScaleDraft(d => ({ ...d, x: String(clamped) }));
-								commitBackgroundScale("x", clamped);
+								applyBackgroundScaleTransient("x", clamped);
 							},
-							scaleStepX
+							scaleStepX,
+							val => commitBackgroundScale("x", val)
 						)
 					}
 					disabled={!bg.src}
@@ -160,11 +166,12 @@ export function BackgroundPanel({
 							e,
 							() => parseFloat(scaleDraft.y) || 0,
 							val => {
-								const clamped = clampValue(val, [0.1, 10]);
+								const clamped = clampValue(val, [1e-4, 1000]);
 								setScaleDraft(d => ({ ...d, y: String(clamped) }));
-								commitBackgroundScale("y", clamped);
+								applyBackgroundScaleTransient("y", clamped);
 							},
-							scaleStepY
+							scaleStepY,
+							val => commitBackgroundScale("y", val)
 						)
 					}
 					disabled={!bg.src}
