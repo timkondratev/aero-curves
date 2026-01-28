@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { createContext, useContext } from "react";
 import type { AppState, PlotId, PlotState } from "./reducer";
 
@@ -10,17 +9,13 @@ type AppActions = {
 	removePlot: (id: PlotId) => void;
 };
 
-type AppContextValue = {
+export type AppContextValue = {
 	state: AppState;
 	activePlot: PlotState | null;
 	actions: AppActions;
 };
 
-const AppContext = createContext<AppContextValue | null>(null);
-
-export function AppProvider({ value, children }: { value: AppContextValue; children: ReactNode }) {
-	return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-}
+export const AppContext = createContext<AppContextValue | null>(null);
 
 export function useAppContext() {
 	const ctx = useContext(AppContext);

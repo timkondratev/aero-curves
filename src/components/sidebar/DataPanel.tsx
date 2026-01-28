@@ -19,7 +19,7 @@ export function DataPanel({ plot, onChange }: Props) {
 			await navigator.clipboard.writeText(pointsJson);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 800);
-		} catch (err) {
+		} catch {
 			setCopied(false);
 		}
 	};

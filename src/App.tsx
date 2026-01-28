@@ -14,7 +14,7 @@ import {
 	replaceSelectionWithPoints,
 } from "./utils/geometry";
 import { parsePointsFromClipboard, serializePointsForClipboard } from "./utils/clipboard";
-import { AppProvider } from "./state/AppContext";
+import { AppProvider } from "./state/AppProvider";
 import { useHistoryReducer } from "./hooks/useHistoryReducer";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import "./styles/globals.css";
