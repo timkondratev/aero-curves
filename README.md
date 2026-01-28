@@ -34,3 +34,8 @@ npm run preview
 - Drag on empty space to brush-select a range of points.
 - Use the sidebar to edit domains, snapping, grid visibility, and selection coordinates.
 - Use the Data panel to copy points as JSON or normalize the curve to the domain.
+
+## Roadmap
+
+- Calculated plots support: define curves from formulas or derived data, then visualize and edit them alongside hand-drawn plots.
+- Export in various formats for major game engines.
