@@ -300,3 +300,13 @@ input[type="radio"] {
 	align-items: center;
 	gap: 6px;
 }
+
+.field-message {
+	font-size: 12px;
+	line-height: 1.3;
+	color: var(--muted);
+}
+
+.field-message.is-error {
+	color: #b00020;
+}
