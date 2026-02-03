@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Plot } from "./components/Plot";
 import { SideBar } from "./components/SideBar";
 import { ToolBar } from "./components/ToolBar";
@@ -41,22 +41,22 @@ function App_() {
 		[state.plots, state.activePlotId]
 	);
 
-	const replacePlot = (plot: PlotState) => dispatch({ type: "plot/replace", plot });
-	const replacePlotNoHistory = (plot: PlotState) => dispatch({ type: "plot/replace", plot });
+	const replacePlot = useCallback((plot: PlotState) => dispatch({ type: "plot/replace", plot }), [dispatch]);
+	const replacePlotNoHistory = useCallback((plot: PlotState) => dispatch({ type: "plot/replace", plot }), [dispatch]);
 
-	const recordChange = (prev: AppState) => {
+	const recordChange = useCallback((prev: AppState) => {
 		const stack = pastRef.current.concat(cloneState(prev));
 		const trimmed = stack.length > HISTORY_LIMIT ? stack.slice(stack.length - HISTORY_LIMIT) : stack;
 		pastRef.current = trimmed;
 		futureRef.current = [];
-	};
+	}, []);
 
-	const applyChange = (mutate: () => void) => {
+	const applyChange = useCallback((mutate: () => void) => {
 		const snapshot = historyBaseRef.current ?? cloneState(state);
 		mutate();
 		recordChange(snapshot);
 		historyBaseRef.current = null;
-	};
+	}, [recordChange, state]);
 
 	const handleSetActive = (id: PlotId | null) => dispatch({ type: "app/set-active", id });
 	const handleAddPlot = () => applyChange(() => dispatch({ type: "plot/add" }));
@@ -68,10 +68,10 @@ function App_() {
 		replacePlotNoHistory(plot);
 	};
 
-	const updateActivePlot = (updater: (p: PlotState) => PlotState) => {
+	const updateActivePlot = useCallback((updater: (p: PlotState) => PlotState) => {
 		if (!activePlot) return;
 		applyChange(() => replacePlot(updater(activePlot)));
-	};
+	}, [activePlot, applyChange, replacePlot]);
 
 	const selectionSize = activePlot?.selection.length ?? 0;
 	const canFlip = selectionSize > 0;
@@ -105,19 +105,19 @@ function App_() {
 		}));
 	};
 
-	const handleDuplicateLeft = () => {
+	const handleDuplicateLeft = useCallback(() => {
 		updateActivePlot(p => ({
 			...p,
 			...duplicateSelectionLeft(p.points, new Set(p.selection), () => crypto.randomUUID()),
 		}));
-	};
+	}, [updateActivePlot]);
 
-	const handleDuplicateRight = () => {
+	const handleDuplicateRight = useCallback(() => {
 		updateActivePlot(p => ({
 			...p,
 			...duplicateSelectionRight(p.points, new Set(p.selection), () => crypto.randomUUID()),
 		}));
-	};
+	}, [updateActivePlot]);
 
 	const handleTrim = () => {
 		updateActivePlot(p => ({
@@ -126,16 +126,16 @@ function App_() {
 		}));
 	};
 
-	const handleDeleteSelection = () => {
+	const handleDeleteSelection = useCallback(() => {
 		updateActivePlot(p => {
 			if (!p.selection.length) return p;
 			const selectionSet = new Set(p.selection);
 			const nextPoints = p.points.filter(pt => !selectionSet.has(pt.id));
 			return { ...p, points: nextPoints, selection: [] };
 		});
-	};
+	}, [updateActivePlot]);
 
-	const handleCopy = () => {
+	const handleCopy = useCallback(() => {
 		if (!activePlot || !activePlot.selection.length) return;
 		const selectedSet = new Set(activePlot.selection);
 		const selectedPoints = activePlot.points
@@ -150,9 +150,9 @@ function App_() {
 				// Ignore clipboard write failures
 			});
 		}
-	};
+	}, [activePlot]);
 
-	const handlePaste = async () => {
+	const handlePaste = useCallback(async () => {
 		if (!activePlot || !activePlot.selection.length) return;
 		let incoming = lastCopiedRef.current;
 		if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
@@ -162,7 +162,7 @@ function App_() {
 				if (parsed && parsed.length) {
 					incoming = parsed;
 				}
-			} catch (err) {
+			} catch {
 				// Ignore clipboard read failures and fall back to in-memory copy
 			}
 		}
@@ -173,23 +173,23 @@ function App_() {
 			...p,
 			...replaceSelectionWithPoints(p.points, new Set(p.selection), incoming!, p.domainX, p.domainY, () => crypto.randomUUID()),
 		}));
-	};
+	}, [activePlot, updateActivePlot]);
 
-	const handleUndo = () => {
+	const handleUndo = useCallback(() => {
 		const prev = pastRef.current.pop();
 		if (!prev) return;
 		futureRef.current = futureRef.current.concat(cloneState(state));
 		dispatch({ type: "app/replace-state", state: prev });
 		historyBaseRef.current = null;
-	};
+	}, [state, dispatch]);
 
-	const handleRedo = () => {
+	const handleRedo = useCallback(() => {
 		const next = futureRef.current.pop();
 		if (!next) return;
 		pastRef.current = pastRef.current.concat(cloneState(state));
 		dispatch({ type: "app/replace-state", state: next });
 		historyBaseRef.current = null;
-	};
+	}, [state, dispatch]);
 
 	const handleSidebarResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
 		e.preventDefault();

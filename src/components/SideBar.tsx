@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 import type { PlotId, PlotState, PointId } from "../state/reducer";
 import { clampValue } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
@@ -22,6 +22,18 @@ export function SideBar({ plot, plots, onChange, onDuplicate, onRemove }: Props)
         return <div className="plot-meta">Select a plot to edit.</div>;
     }
 
+    return <SideBarContent key={plot.id} plot={plot} plots={plots} onChange={onChange} onDuplicate={onDuplicate} onRemove={onRemove} />;
+}
+
+type ContentProps = {
+    plot: PlotState;
+    plots: PlotState[];
+    onChange: (plot: PlotState) => void;
+    onDuplicate?: (id: PlotId) => void;
+    onRemove?: (id: PlotId) => void;
+};
+
+function SideBarContent({ plot, plots, onChange, onDuplicate, onRemove }: ContentProps) {
     const selection = useMemo(() => new Set<PointId>(plot.selection), [plot.selection]);
     const selectedPoints = useMemo(
         () => plot.points.filter(p => selection.has(p.id)),
@@ -38,8 +50,9 @@ export function SideBar({ plot, plots, onChange, onDuplicate, onRemove }: Props)
         };
     }, [selectedPoints]);
 
+    const selectionKey = `${plot.selection.join("|")}:${center ? `${center.x},${center.y}` : "none"}`;
+
     const [nameDraft, setNameDraft] = useState(plot.name);
-    const [coordDraft, setCoordDraft] = useState<{ x: string; y: string }>({ x: center ? String(center.x) : "", y: center ? String(center.y) : "" });
     const [domainDraft, setDomainDraft] = useState<{ x0: string; x1: string; y0: string; y1: string }>({
         x0: String(plot.domainX[0]),
         x1: String(plot.domainX[1]),
@@ -54,26 +67,6 @@ export function SideBar({ plot, plots, onChange, onDuplicate, onRemove }: Props)
         x: String(plot.background.scaleX),
         y: String(plot.background.scaleY),
     });
-
-    useEffect(() => {
-        setNameDraft(plot.name);
-        setDomainDraft({
-            x0: String(plot.domainX[0]),
-            x1: String(plot.domainX[1]),
-            y0: String(plot.domainY[0]),
-            y1: String(plot.domainY[1]),
-        });
-        setStepDraft({ x: String(plot.snapPrecisionX), y: String(plot.snapPrecisionY) });
-        setScaleDraft({ x: String(plot.background.scaleX), y: String(plot.background.scaleY) });
-    }, [plot]);
-
-    useEffect(() => {
-        if (!selectedPoints.length || !center) {
-            setCoordDraft({ x: "", y: "" });
-            return;
-        }
-        setCoordDraft({ x: String(center.x), y: String(center.y) });
-    }, [center?.x, center?.y, selectedPoints.length]);
 
     const commitName = () => {
         if (nameDraft === plot.name) return;
@@ -114,8 +107,7 @@ export function SideBar({ plot, plots, onChange, onDuplicate, onRemove }: Props)
     };
 
     const commitCoord = (axis: "x" | "y", override?: number) => {
-        const draftVal = axis === "x" ? coordDraft.x : coordDraft.y;
-        const val = override ?? parseFloat(draftVal);
+        const val = override ?? NaN;
         if (!selectedPoints.length || Number.isNaN(val)) return;
         const snapEnabled = axis === "x" ? plot.snapX : plot.snapY;
         const precision = axis === "x" ? plot.snapPrecisionX : plot.snapPrecisionY;
@@ -284,8 +276,7 @@ export function SideBar({ plot, plots, onChange, onDuplicate, onRemove }: Props)
                 onRemove={onRemove ? () => onRemove(plot.id) : undefined}
             />
             <SelectionPanel
-                coordDraft={coordDraft}
-                setCoordDraft={setCoordDraft}
+                key={selectionKey}
                 center={center}
                 selectedCount={selectedPoints.length}
                 commitCoord={commitCoord}
