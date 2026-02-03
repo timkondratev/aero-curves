@@ -132,6 +132,16 @@ input[type="radio"] {
 	-ms-user-select: none;
 }
 
+.sidebar-container input,
+.sidebar-container textarea,
+.sidebar-container .field-message,
+.sidebar-container details > summary {
+	user-select: text;
+	-webkit-user-select: text;
+	-moz-user-select: text;
+	-ms-user-select: text;
+}
+
 .sidebar-drag-handle {
 	position: absolute;
 	left: -8px;
@@ -314,4 +324,14 @@ input[type="radio"] {
 
 .field-message.is-error {
 	color: #b00020;
+}
+
+details > summary {
+	cursor: pointer;
+	font-weight: 600;
+	font-size: 13px;
+}
+
+details > summary::marker {
+	font-size: 14px;
 }

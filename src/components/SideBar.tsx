@@ -6,6 +6,7 @@ import { SelectionPanel } from "./sidebar/SelectionPanel";
 import { GridPanel } from "./sidebar/GridPanel";
 import { PlotPanel } from "./sidebar/PlotPanel";
 import { BackgroundPanel } from "./sidebar/BackgroundPanel";
+import { FormulaPanel } from "./sidebar/FormulaPanel";
 import { DataPanel } from "./sidebar/DataPanel";
 
 type Props = {
@@ -312,7 +313,8 @@ export function SideBar({ plot, plots, onChange, onDuplicate, onRemove }: Props)
                 scaleStepX={scaleStepX}
                 scaleStepY={scaleStepY}
             />
-            <DataPanel plot={plot} plots={plots} onChange={onChange} />
+            <FormulaPanel plot={plot} plots={plots} onChange={onChange} />
+            <DataPanel plot={plot} onChange={onChange} />
         </div>
     );
 }
