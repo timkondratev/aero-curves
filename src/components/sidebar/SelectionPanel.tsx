@@ -10,16 +10,16 @@ type Props = {
 };
 
 export function SelectionPanel({ center, selectedCount, commitCoord }: Props) {
-	const [coordDraft, setCoordDraft] = useState<CoordDraft>(() => ({
+	const [coordDraft, setCoordDraft] = useState<CoordDraft>({
 		x: center ? String(center.x) : "",
 		y: center ? String(center.y) : "",
-	}));
+	});
 
-	const commitDraft = (axis: "x" | "y") => {
+	const commitFromDraft = (axis: "x" | "y") => {
 		const raw = axis === "x" ? coordDraft.x : coordDraft.y;
-		const val = parseFloat(raw);
-		if (Number.isNaN(val)) return;
-		commitCoord(axis, val);
+		const parsed = parseFloat(raw);
+		if (Number.isNaN(parsed)) return;
+		commitCoord(axis, parsed);
 	};
 
 	return (
@@ -33,7 +33,7 @@ export function SelectionPanel({ center, selectedCount, commitCoord }: Props) {
 					type="number"
 					value={coordDraft.x}
 					onChange={e => setCoordDraft(d => ({ ...d, x: e.target.value }))}
-					onBlur={() => commitDraft("x")}
+					onBlur={() => commitFromDraft("x")}
 					onKeyDown={onEnterBlur}
 					onMouseDown={e =>
 						startNumberDrag(
@@ -54,7 +54,7 @@ export function SelectionPanel({ center, selectedCount, commitCoord }: Props) {
 					type="number"
 					value={coordDraft.y}
 					onChange={e => setCoordDraft(d => ({ ...d, y: e.target.value }))}
-					onBlur={() => commitDraft("y")}
+					onBlur={() => commitFromDraft("y")}
 					onKeyDown={onEnterBlur}
 					onMouseDown={e =>
 						startNumberDrag(
