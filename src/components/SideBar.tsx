@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useState, useEffect, useRef, type ChangeEvent } from "react";
 import type { PlotId, PlotState, PointId } from "../state/reducer";
 import { clampValue } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
@@ -61,6 +61,8 @@ function SideBarContent({ plot, plots, onChange, onChangeTransient, onDuplicate,
 	const selectionKey = `${plot.selection.join("|")}:${center ? `${center.x},${center.y}` : "none"}`;
 
 	const [nameDraft, setNameDraft] = useState(plot.name);
+	const nameDraftRef = useRef(nameDraft);
+	const plotRef = useRef(plot);
 	const [offsetDraft, setOffsetDraft] = useState<{ x: string; y: string }>({
 		x: String(plot.background.offsetX),
 		y: String(plot.background.offsetY),
@@ -79,6 +81,23 @@ function SideBarContent({ plot, plots, onChange, onChangeTransient, onDuplicate,
 		x: String(plot.background.scaleX),
 		y: String(plot.background.scaleY),
 	});
+
+	useEffect(() => {
+		nameDraftRef.current = nameDraft;
+	}, [nameDraft]);
+
+	useEffect(() => {
+		plotRef.current = plot;
+	}, [plot]);
+
+	useEffect(() => {
+		return () => {
+			const currentPlot = plotRef.current;
+			const draft = nameDraftRef.current;
+			if (draft === currentPlot.name) return;
+			onChange({ ...currentPlot, name: draft });
+		};
+	}, [onChange]);
 
 	const commitName = () => {
 		if (nameDraft === plot.name) return;
