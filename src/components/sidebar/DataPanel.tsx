@@ -8,10 +8,14 @@ const toJson = (points: PlotState["points"]) => JSON.stringify(points.map(p => (
 
 type Props = {
 	plot: PlotState;
+	plots: PlotState[];
 	onChange: (plot: PlotState) => void;
 };
 
-export function DataPanel({ plot, onChange }: Props) {
+const plotFunctionPrefix = "PLOT_";
+const toPlotFunctionName = (name: string) => `${plotFunctionPrefix}${name.replace(/[^a-zA-Z0-9_]/g, "_")}`;
+
+export function DataPanel({ plot, plots, onChange }: Props) {
 	const [copied, setCopied] = useState(false);
 	const [formula, setFormula] = useState("sin(x)");
 	const [formulaError, setFormulaError] = useState<string | null>(null);
@@ -61,8 +65,51 @@ export function DataPanel({ plot, onChange }: Props) {
 			expr = Parser.parse(trimmed);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Invalid formula.";
-			setFormulaError(message);
+			setFormulaError(`${message} Use explicit multiplication, e.g. 2*x or x*(...)`);
 			return;
+		}
+
+		const plotFunctionEntries = new Map<string, { fn: (x: number) => number; plotName: string; valid: boolean }>();
+		const nameConflicts: string[] = [];
+		plots.forEach(source => {
+			const fnName = toPlotFunctionName(source.name);
+			if (plotFunctionEntries.has(fnName)) {
+				nameConflicts.push(fnName);
+				return;
+			}
+			if (source.points.length < 2) {
+				plotFunctionEntries.set(fnName, { fn: () => Number.NaN, plotName: source.name, valid: false });
+				return;
+			}
+			const sorted = [...source.points].sort((a, b) => a.x - b.x);
+			const { evaluate } = buildMonotoneSpline(sorted, x => x, y => y);
+			plotFunctionEntries.set(fnName, {
+				fn: (x: number) => {
+					const boundedX = clampValue(x, source.domainX);
+					const y = evaluate(boundedX);
+					return clampValue(y, source.domainY);
+				},
+				plotName: source.name,
+				valid: true,
+			});
+		});
+
+		if (nameConflicts.length) {
+			setFormulaError(`Multiple plots map to ${nameConflicts[0]}. Rename plots to avoid conflicts.`);
+			return;
+		}
+
+		const usedPlotFunctions = Array.from(new Set(trimmed.match(/PLOT_[A-Za-z0-9_]+/g) ?? []));
+		for (const fnName of usedPlotFunctions) {
+			const entry = plotFunctionEntries.get(fnName);
+			if (!entry) {
+				setFormulaError(`Unknown plot function: ${fnName}.`);
+				return;
+			}
+			if (!entry.valid) {
+				setFormulaError(`Plot ${entry.plotName} needs at least 2 points to be used in a formula.`);
+				return;
+			}
 		}
 
 		const [x0, x1] = plot.domainX;
@@ -75,13 +122,18 @@ export function DataPanel({ plot, onChange }: Props) {
 			return;
 		}
 
+		const functionScope: Record<string, (x: number) => number> = {};
+		plotFunctionEntries.forEach((entry, name) => {
+			functionScope[name] = entry.fn;
+		});
+
 		const nextPoints: PlotState["points"] = [];
 		let i = 0;
 		for (let x = minX; x <= maxX + 1e-9 && nextPoints.length < 2000; x += step) {
 			const snapped = parseFloat(x.toFixed(8));
 			let y: number;
 			try {
-				y = expr.evaluate({ x: snapped });
+				y = expr.evaluate({ x: snapped, ...functionScope });
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Invalid formula.";
 				setFormulaError(`Error at x=${snapped}: ${message}`);
@@ -100,7 +152,7 @@ export function DataPanel({ plot, onChange }: Props) {
 			const snapped = parseFloat(maxX.toFixed(8));
 			let y: number;
 			try {
-				y = expr.evaluate({ x: snapped });
+				y = expr.evaluate({ x: snapped, ...functionScope });
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Invalid formula.";
 				setFormulaError(`Error at x=${snapped}: ${message}`);
@@ -122,40 +174,45 @@ export function DataPanel({ plot, onChange }: Props) {
 	};
 
 	return (
-		<div className="panel-section">
-			<div className="section-title">DATA</div>
-			<div className="form-row">
-				<div className="row-label">Formula</div>
-				<input
-					className="row-control"
-					value={formula}
-					onChange={e => {
-						setFormula(e.target.value);
-						setFormulaError(null);
-					}}
-					placeholder="e.g. sin(x)"
-				/>
-				<button className="btn" type="button" onClick={handleCalculate}>
-					Calculate
-				</button>
-			</div>
-			{formulaError && (
+		<>
+			<div className="panel-section">
+				<div className="section-title">FORMULA</div>
 				<div className="form-row">
-					<div className="row-label" />
-					<div className="row-control field-message is-error">{formulaError}</div>
+					<div className="row-label">
+						<button className="btn" type="button" onClick={handleCalculate}>
+							Calculate
+						</button>
+					</div>
+					<div className={`row-control field-message${formulaError ? " is-error" : ""}`}>{formulaError ?? ""}</div>
 				</div>
-			)}
-			<div className="form-row inline-pair">
-				<button className="btn" type="button" onClick={handleNormalize} disabled={plot.points.length < 2}>
-					Normalize to domain
-				</button>
-				<button className="btn" type="button" onClick={handleCopy}>
-					{copied ? "Copied" : "Copy JSON"}
-				</button>
+				<div className="form-row">
+					<textarea
+						className="row-control"
+						value={formula}
+						onChange={e => {
+							setFormula(e.target.value);
+							setFormulaError(null);
+						}}
+						placeholder="e.g. sin(x)"
+						rows={2}
+						style={{ resize: "vertical" }}
+					/>
+				</div>
 			</div>
-			<div className="form-row">
-				<textarea className="row-control" value={pointsJson} readOnly rows={8} style={{ fontFamily: "monospace" }} />
+			<div className="panel-section">
+				<div className="section-title">DATA</div>
+				<div className="form-row inline-pair">
+					<button className="btn" type="button" onClick={handleNormalize} disabled={plot.points.length < 2}>
+						Normalize to domain
+					</button>
+					<button className="btn" type="button" onClick={handleCopy}>
+						{copied ? "Copied" : "Copy JSON"}
+					</button>
+				</div>
+				<div className="form-row">
+					<textarea className="row-control" value={pointsJson} readOnly rows={12} style={{ fontFamily: "monospace" }} />
+				</div>
 			</div>
-		</div>
+		</>
 	);
 }

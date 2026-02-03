@@ -311,6 +311,7 @@ function App_() {
 				/>
 				<SideBar
 					plot={activePlot}
+					plots={state.plots}
 					onChange={handleReplacePlot}
 					onDuplicate={handleDuplicatePlot}
 					onRemove={handleRemovePlot}

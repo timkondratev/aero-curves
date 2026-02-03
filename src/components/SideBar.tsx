@@ -10,12 +10,13 @@ import { DataPanel } from "./sidebar/DataPanel";
 
 type Props = {
     plot: PlotState | null;
+    plots: PlotState[];
     onChange: (plot: PlotState) => void;
     onDuplicate?: (id: PlotId) => void;
     onRemove?: (id: PlotId) => void;
 };
 
-export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
+export function SideBar({ plot, plots, onChange, onDuplicate, onRemove }: Props) {
     if (!plot) {
         return <div className="plot-meta">Select a plot to edit.</div>;
     }
@@ -311,7 +312,7 @@ export function SideBar({ plot, onChange, onDuplicate, onRemove }: Props) {
                 scaleStepX={scaleStepX}
                 scaleStepY={scaleStepY}
             />
-            <DataPanel plot={plot} onChange={onChange} />
+            <DataPanel plot={plot} plots={plots} onChange={onChange} />
         </div>
     );
 }

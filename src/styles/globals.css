@@ -37,6 +37,11 @@ button {
 	margin: 2px 0;
 }
 
+textarea {
+	height: auto;
+	min-height: 120px;
+}
+
 button {
 	display: inline-flex;
 	align-items: center;
