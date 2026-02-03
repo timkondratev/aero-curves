@@ -11,10 +11,11 @@ type Props = {
 	plot: PlotState;
 	plots: PlotState[];
 	onChange: (plot: PlotState) => void;
+	onChangeTransient?: (plot: PlotState) => void;
 };
 
-export function FormulaPanel({ plot, plots, onChange }: Props) {
-	const [formula, setFormula] = useState("sin(x)");
+export function FormulaPanel({ plot, plots, onChange, onChangeTransient }: Props) {
+	const [formula, setFormula] = useState(plot.formula ?? "sin(x)");
 	const [formulaError, setFormulaError] = useState<string | null>(null);
 
 	const handleCalculate = () => {
@@ -134,7 +135,12 @@ export function FormulaPanel({ plot, plots, onChange }: Props) {
 			setFormulaError("No points generated.");
 			return;
 		}
-		onChange({ ...plot, points: nextPoints, selection: [], brush: null });
+		onChange({ ...plot, formula: trimmed, points: nextPoints, selection: [], brush: null });
+	};
+
+	const commitFormula = (value: string) => {
+		if (value === plot.formula) return;
+		onChange({ ...plot, formula: value });
 	};
 
 	return (
@@ -153,9 +159,13 @@ export function FormulaPanel({ plot, plots, onChange }: Props) {
 					className="row-control"
 					value={formula}
 					onChange={e => {
-						setFormula(e.target.value);
+						const next = e.target.value;
+						setFormula(next);
+						const apply = onChangeTransient ?? onChange;
+						apply({ ...plot, formula: next });
 						setFormulaError(null);
 					}}
+					onBlur={e => commitFormula(e.target.value)}
 					placeholder="e.g. sin(x)"
 					rows={2}
 					style={{ resize: "vertical" }}
