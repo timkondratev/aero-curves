@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef, type ChangeEvent } from "react";
 import type { PlotId, PlotState, PointId } from "../state/reducer";
+import { makeUniquePlotName } from "../state/reducer";
 import { clampValue } from "../utils/geometry";
 import { snapValue } from "../utils/snapping";
 import { SelectionPanel } from "./sidebar/SelectionPanel";
@@ -63,6 +64,7 @@ function SideBarContent({ plot, plots, onChange, onChangeTransient, onDuplicate,
 	const [nameDraft, setNameDraft] = useState(plot.name);
 	const nameDraftRef = useRef(nameDraft);
 	const plotRef = useRef(plot);
+	const plotsRef = useRef(plots);
 	const [offsetDraft, setOffsetDraft] = useState<{ x: string; y: string }>({
 		x: String(plot.background.offsetX),
 		y: String(plot.background.offsetY),
@@ -91,17 +93,24 @@ function SideBarContent({ plot, plots, onChange, onChangeTransient, onDuplicate,
 	}, [plot]);
 
 	useEffect(() => {
+		plotsRef.current = plots;
+	}, [plots]);
+
+	useEffect(() => {
 		return () => {
 			const currentPlot = plotRef.current;
 			const draft = nameDraftRef.current;
-			if (draft === currentPlot.name) return;
-			onChange({ ...currentPlot, name: draft });
+			const uniqueDraft = makeUniquePlotName(draft, plotsRef.current, currentPlot.id);
+			if (uniqueDraft === currentPlot.name) return;
+			onChange({ ...currentPlot, name: uniqueDraft });
 		};
 	}, [onChange]);
 
 	const commitName = () => {
-		if (nameDraft === plot.name) return;
-		onChange({ ...plot, name: nameDraft });
+		const uniqueDraft = makeUniquePlotName(nameDraft, plots, plot.id);
+		if (uniqueDraft === plot.name) return;
+		setNameDraft(uniqueDraft);
+		onChange({ ...plot, name: uniqueDraft });
 	};
 
 	const commitDomain = (axis: "x" | "y", index: 0 | 1, override?: number) => {
