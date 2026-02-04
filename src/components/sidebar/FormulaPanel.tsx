@@ -23,12 +23,20 @@ export function FormulaPanel({ plot, plots, onChange, onChangeTransient }: Props
 			section: "Aerodynamics",
 			items: [
 				{
-					label: "Normal force (from Cl, Cd)",
+					label: "Normal Force Coefficient Cn (from Cl, Cd)",
 					value: "PLOT_Cl(x) * cos(x * PI / 180) + PLOT_Cd(x) * sin(x * PI / 180)",
 				},
 				{
-					label: "Tangential force (from Cl, Cd)",
+					label: "Tangential Force Coefficient Ct (from Cl, Cd)",
 					value: "PLOT_Cl(x) * sin(x * PI / 180) - PLOT_Cd(x) * cos(x * PI / 180)",
+				},
+				{
+					label: "Lift Coefficient Cl (from Cn, Ct)",
+					value: "PLOT_Cn(x) * cos(x * PI / 180) + PLOT_Ct(x) * sin(x * PI / 180)",
+				},
+				{
+					label: "Drag Coefficient Cd (from Cn, Ct)",
+					value: "PLOT_Cn(x) * sin(x * PI / 180) - PLOT_Ct(x) * cos(x * PI / 180)",
 				},
 			],
 		},
