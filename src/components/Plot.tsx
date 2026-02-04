@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { scaleLinear } from "d3";
 import type { PointerEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { PlotState, PointId } from "../state/reducer";
@@ -105,7 +105,7 @@ export function Plot({ plot, active, onActivate, onChange, onChangeTransient }: 
 
 	const selection = useMemo(() => new Set(plot.selection), [plot.selection]);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		plotRef.current = plot;
 	}, [plot]);
 

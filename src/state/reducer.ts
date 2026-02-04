@@ -18,6 +18,7 @@ export type BackgroundImage = {
 export type PlotState = {
 	id: PlotId;
 	name: string;
+	formula: string;
 	points: Point[];
 	selection: PointId[];
 	brush: [number, number] | null;
@@ -90,6 +91,7 @@ const makeDefaultPoints = (domainX: Domain, domainY: Domain): Point[] => {
 const makePlot = (name: string): PlotState => ({
 	id: nextId(),
 	name,
+	formula: "sin(x)",
 	points: makeDefaultPoints(DEFAULT_DOMAIN_X, DEFAULT_DOMAIN_Y),
 	selection: [],
 	brush: null,

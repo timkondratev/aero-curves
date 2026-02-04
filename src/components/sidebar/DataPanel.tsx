@@ -58,7 +58,7 @@ export function DataPanel({ plot, onChange }: Props) {
 				</button>
 			</div>
 			<div className="form-row">
-				<textarea className="row-control" value={pointsJson} readOnly rows={8} style={{ fontFamily: "monospace" }} />
+				<textarea className="row-control" value={pointsJson} readOnly rows={12} style={{ fontFamily: "monospace" }} />
 			</div>
 		</div>
 	);

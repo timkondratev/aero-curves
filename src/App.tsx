@@ -62,10 +62,10 @@ function App_() {
 		[dispatchTransient]
 	);
 
-	const updateActivePlot = (updater: (p: PlotState) => PlotState) => {
+	const updateActivePlot = useCallback((updater: (p: PlotState) => PlotState) => {
 		if (!activePlot) return;
 		applyChange(() => replacePlot(updater(activePlot)));
-	};
+	}, [activePlot, applyChange, replacePlot]);
 
 	const selectionSize = activePlot?.selection.length ?? 0;
 	const canFlip = selectionSize > 0;
@@ -99,19 +99,19 @@ function App_() {
 		}));
 	};
 
-	const handleDuplicateLeft = () => {
+	const handleDuplicateLeft = useCallback(() => {
 		updateActivePlot(p => ({
 			...p,
 			...duplicateSelectionLeft(p.points, new Set(p.selection), () => crypto.randomUUID()),
 		}));
-	};
+	}, [updateActivePlot]);
 
-	const handleDuplicateRight = () => {
+	const handleDuplicateRight = useCallback(() => {
 		updateActivePlot(p => ({
 			...p,
 			...duplicateSelectionRight(p.points, new Set(p.selection), () => crypto.randomUUID()),
 		}));
-	};
+	}, [updateActivePlot]);
 
 	const handleTrim = () => {
 		updateActivePlot(p => ({
@@ -120,16 +120,16 @@ function App_() {
 		}));
 	};
 
-	const handleDeleteSelection = () => {
+	const handleDeleteSelection = useCallback(() => {
 		updateActivePlot(p => {
 			if (!p.selection.length) return p;
 			const selectionSet = new Set(p.selection);
 			const nextPoints = p.points.filter(pt => !selectionSet.has(pt.id));
 			return { ...p, points: nextPoints, selection: [] };
 		});
-	};
+	}, [updateActivePlot]);
 
-	const handleCopy = () => {
+	const handleCopy = useCallback(() => {
 		if (!activePlot || !activePlot.selection.length) return;
 		const selectedSet = new Set(activePlot.selection);
 		const selectedPoints = activePlot.points
@@ -144,9 +144,9 @@ function App_() {
 				// Ignore clipboard write failures
 			});
 		}
-	};
+	}, [activePlot]);
 
-	const handlePaste = async () => {
+	const handlePaste = useCallback(async () => {
 		if (!activePlot || !activePlot.selection.length) return;
 		let incoming = lastCopiedRef.current;
 		if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
@@ -167,7 +167,7 @@ function App_() {
 			...p,
 			...replaceSelectionWithPoints(p.points, new Set(p.selection), incoming!, p.domainX, p.domainY, () => crypto.randomUUID()),
 		}));
-	};
+	}, [activePlot, updateActivePlot]);
 
 	const handleUndo = () => undo();
 	const handleRedo = () => redo();
