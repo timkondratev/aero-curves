@@ -18,6 +18,22 @@ export function FormulaPanel({ plot, plots, onChange, onChangeTransient }: Props
 	const [formula, setFormula] = useState(plot.formula ?? "sin(x)");
 	const [formulaError, setFormulaError] = useState<string | null>(null);
 
+	const formulaCatalog = [
+		{
+			section: "Aerodynamics",
+			items: [
+				{
+					label: "Normal force (from Cl, Cd)",
+					value: "PLOT_Cl(x) * cos(x * PI / 180) + PLOT_Cd(x) * sin(x * PI / 180)",
+				},
+				{
+					label: "Tangential force (from Cl, Cd)",
+					value: "PLOT_Cl(x) * sin(x * PI / 180) - PLOT_Cd(x) * cos(x * PI / 180)",
+				},
+			],
+		},
+	];
+
 	const handleCalculate = () => {
 		setFormulaError(null);
 		const trimmed = formula.trim();
@@ -152,7 +168,34 @@ export function FormulaPanel({ plot, plots, onChange, onChangeTransient }: Props
 						Calculate
 					</button>
 				</div>
-				<div className={`row-control field-message${formulaError ? " is-error" : ""}`}>{formulaError ?? ""}</div>
+				<div className="row-control" style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+					<select
+						style={{ flex: "1 1 0", minWidth: 0 }}
+						onChange={e => {
+							const next = e.target.value;
+							if (!next) return;
+							setFormula(next);
+							const apply = onChangeTransient ?? onChange;
+							apply({ ...plot, formula: next });
+							setFormulaError(null);
+							e.currentTarget.value = "";
+						}}
+						defaultValue=""
+					>
+						<option value="" disabled>
+							Select a formula...
+						</option>
+						{formulaCatalog.map(section => (
+							<optgroup key={section.section} label={section.section}>
+								{section.items.map(item => (
+									<option key={item.label} value={item.value}>
+										{item.label}
+									</option>
+								))}
+							</optgroup>
+						))}
+					</select>
+				</div>
 			</div>
 			<div className="form-row">
 				<textarea
@@ -171,6 +214,11 @@ export function FormulaPanel({ plot, plots, onChange, onChangeTransient }: Props
 					style={{ resize: "vertical" }}
 				/>
 			</div>
+			{formulaError ? (
+				<div className="form-row">
+					<div className="row-control field-message is-error">{formulaError}</div>
+				</div>
+			) : null}
 			<div className="form-row">
 				<details className="row-control">
 					<summary>Formula help</summary>
