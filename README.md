@@ -7,6 +7,8 @@ Aero Curves is a lightweight curve editor for games and simulations. Build, twea
 ## Features
 
 - Multi-plot workspace with per-plot domains
+- User-defined formulas for curve calculation
+- Generation of curves from other curves
 - Drag-select and multi-select points
 - Grid display with adjustable snap step on X/Y
 - Background image tracing with opacity, offset, and scale controls
@@ -37,5 +39,4 @@ npm run preview
 
 ## Roadmap
 
-- Calculated plots support: define curves from formulas or derived data, then visualize and edit them alongside hand-drawn plots.
 - Export in various formats for major game engines.
