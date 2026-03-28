@@ -371,7 +371,6 @@ function SideBarContent({ plot, plots, onChange, onChangeTransient, onDuplicate,
 				setOffsetDraft={setOffsetDraft}
 				scaleDraft={scaleDraft}
 				setScaleDraft={setScaleDraft}
-				onChange={onChange}
 				handleBackgroundFile={handleBackgroundFile}
 				handleBackgroundOpacity={handleBackgroundOpacity}
 				handleBackgroundOffsetDraft={handleBackgroundOffsetDraft}

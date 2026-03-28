@@ -274,6 +274,7 @@ input[type="radio"] {
 	display: flex;
 	align-items: center;
 	gap: 10px;
+	min-width: 0;
 }
 
 .inline-pair {
@@ -290,6 +291,33 @@ input[type="radio"] {
 .row-control {
 	flex: 1 1 auto;
 	min-width: 0;
+}
+
+.row-static {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: 13px;
+}
+
+.row-static-truncate {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.button-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.button-row > .btn {
+	flex: 1 1 0;
+}
+
+.background-file-input {
+	display: none;
 }
 
 .mini-label {

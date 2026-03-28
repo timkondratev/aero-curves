@@ -33,14 +33,14 @@ export function PlotPanel({ nameDraft, setNameDraft, domainDraft, setDomainDraft
 			{(onDuplicate || onRemove) && (
 				<div className="form-row">
 					<div className="row-label">Actions</div>
-					<div className="row-control" style={{ display: "flex", gap: 8 }}>
+					<div className="row-control button-row">
 						{onDuplicate && (
-							<button className="btn" onClick={onDuplicate} style={{ flex: 1 }}>
+							<button className="btn" onClick={onDuplicate}>
 								Duplicate
 							</button>
 						)}
 						{onRemove && (
-							<button className="btn" onClick={onRemove} style={{ flex: 1 }}>
+							<button className="btn" onClick={onRemove}>
 								Remove
 							</button>
 						)}
