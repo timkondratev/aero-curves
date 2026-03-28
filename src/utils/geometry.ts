@@ -1,4 +1,5 @@
 import type { PlotState, PointId } from "../state/reducer";
+import { buildMonotoneSpline } from "./monotone";
 import { snapValue } from "./snapping";
 
 type Point = PlotState["points"][number];
@@ -64,6 +65,31 @@ export const trimToSelection = (points: Point[], selection: Set<PointId>): Point
 	const minX = Math.min(...selected.map(p => p.x));
 	const maxX = Math.max(...selected.map(p => p.x));
 	return points.filter(p => p.x >= minX && p.x <= maxX);
+};
+
+export const normalizePlotToDomain = (plot: PlotState): PlotState => {
+	if (plot.points.length < 2) return plot;
+
+	const sorted = [...plot.points].sort((a, b) => a.x - b.x);
+	const { evaluate } = buildMonotoneSpline(sorted, x => x, y => y);
+	const [x0, x1] = plot.domainX;
+	const span = x1 - x0;
+	const step = span > 0 && plot.snapPrecisionX > 0 ? plot.snapPrecisionX : span / (sorted.length - 1 || 1);
+	if (step <= 0) return plot;
+
+	const xs: number[] = [];
+	for (let x = x0; x <= x1 + 1e-9 && xs.length < 2000; x += step) {
+		xs.push(parseFloat(x.toFixed(8)));
+	}
+	if (xs[xs.length - 1] < x1 && xs.length < 2000) xs.push(x1);
+
+	const points = xs.map((x, i) => ({
+		id: sorted[i]?.id ?? `pt_norm_${i}`,
+		x,
+		y: clampValue(evaluate(x), plot.domainY),
+	}));
+
+	return { ...plot, points, selection: [], brush: null };
 };
 
 export const addPoint = (points: Point[], point: Point): Point[] => {
