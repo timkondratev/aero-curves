@@ -3,6 +3,7 @@ import type { PlotId } from "../state/reducer";
 type Props = {
 	activePlotId: PlotId | null;
 	onAddPlot: () => void;
+	onNormalize: () => void;
 	onFlipX: () => void;
 	onFlipY: () => void;
 	onMirrorLeft: () => void;
@@ -12,6 +13,7 @@ type Props = {
 	onDuplicateRight: () => void;
 	onCopy: () => void;
 	onPaste: () => void;
+	canNormalize: boolean;
 	canFlip: boolean;
 	canMirror: boolean;
 };
@@ -19,6 +21,7 @@ type Props = {
 export function ToolBar({
 	activePlotId,
 	onAddPlot,
+	onNormalize,
 	onFlipX,
 	onFlipY,
 	onMirrorLeft,
@@ -28,12 +31,16 @@ export function ToolBar({
 	onDuplicateRight,
 	onCopy,
 	onPaste,
+	canNormalize,
 	canFlip,
 	canMirror,
 }: Props) {
 	return (
 		<div className="toolbar">
 			<button className="btn" onClick={onAddPlot}>+ Add plot</button>
+			<button className="btn" onClick={onNormalize} disabled={!activePlotId || !canNormalize}>
+				Normalize
+			</button>
 			<button className="btn" onClick={onFlipY} disabled={!activePlotId || !canFlip}>
 				Flip Y
 			</button>

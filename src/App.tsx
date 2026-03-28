@@ -5,6 +5,7 @@ import { ToolBar } from "./components/ToolBar";
 import { makeInitialState, reducer } from "./state/reducer";
 import type { PlotState, PlotId, Action } from "./state/reducer";
 import {
+	normalizePlotToDomain,
 	flipSelectionX,
 	flipSelectionY,
 	mirrorSelection,
@@ -68,8 +69,13 @@ function App_() {
 	}, [activePlot, applyChange, replacePlot]);
 
 	const selectionSize = activePlot?.selection.length ?? 0;
+	const canNormalize = (activePlot?.points.length ?? 0) > 1;
 	const canFlip = selectionSize > 0;
 	const canMirror = selectionSize > 1;
+
+	const handleNormalize = useCallback(() => {
+		updateActivePlot(normalizePlotToDomain);
+	}, [updateActivePlot]);
 
 	const handleFlipY = () => {
 		updateActivePlot(p => ({
@@ -227,6 +233,7 @@ function App_() {
 					<ToolBar
 						activePlotId={state.activePlotId}
 						onAddPlot={handleAddPlot}
+						onNormalize={handleNormalize}
 						onFlipX={handleFlipX}
 						onFlipY={handleFlipY}
 						onMirrorLeft={handleMirrorLeft}
@@ -236,6 +243,7 @@ function App_() {
 						onDuplicateRight={handleDuplicateRight}
 						onCopy={handleCopy}
 						onPaste={handlePaste}
+						canNormalize={canNormalize}
 						canFlip={canFlip}
 						canMirror={canMirror}
 					/>

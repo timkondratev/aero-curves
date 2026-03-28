@@ -385,7 +385,7 @@ function SideBarContent({ plot, plots, onChange, onChangeTransient, onDuplicate,
 				scaleStepY={scaleStepY}
 			/>
 			<FormulaPanel plot={plot} plots={plots} onChange={onChange} onChangeTransient={onChangeTransient} />
-			<DataPanel plot={plot} onChange={onChange} />
+			<DataPanel plot={plot} />
 		</div>
 	);
 
