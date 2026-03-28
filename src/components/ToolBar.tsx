@@ -1,5 +1,22 @@
 import type { PlotId } from "../state/reducer";
 
+type ToolButtonProps = {
+	label: string;
+	tooltip: string;
+	onClick: () => void;
+	disabled?: boolean;
+};
+
+function ToolButton({ label, tooltip, onClick, disabled = false }: ToolButtonProps) {
+	return (
+		<span className="toolbar-tooltip-target" title={tooltip}>
+			<button className="btn" onClick={onClick} disabled={disabled} aria-label={tooltip}>
+				{label}
+			</button>
+		</span>
+	);
+}
+
 type Props = {
 	activePlotId: PlotId | null;
 	onAddPlot: () => void;
@@ -37,37 +54,71 @@ export function ToolBar({
 }: Props) {
 	return (
 		<div className="toolbar">
-			<button className="btn" onClick={onAddPlot}>+ Add plot</button>
-			<button className="btn" onClick={onNormalize} disabled={!activePlotId || !canNormalize}>
-				Normalize
-			</button>
-			<button className="btn" onClick={onFlipY} disabled={!activePlotId || !canFlip}>
-				Flip Y
-			</button>
-			<button className="btn" onClick={onFlipX} disabled={!activePlotId || !canFlip}>
-				Flip X
-			</button>
-			<button className="btn" onClick={onMirrorLeft} disabled={!activePlotId || !canMirror}>
-				Mirror L
-			</button>
-			<button className="btn" onClick={onMirrorRight} disabled={!activePlotId || !canMirror}>
-				Mirror R
-			</button>
-			<button className="btn" onClick={onDuplicateLeft} disabled={!activePlotId || !canFlip}>
-				Duplicate L
-			</button>
-			<button className="btn" onClick={onDuplicateRight} disabled={!activePlotId || !canFlip}>
-				Duplicate R
-			</button>
-			<button className="btn" onClick={onCopy} disabled={!activePlotId || !canFlip}>
-				Copy
-			</button>
-			<button className="btn" onClick={onPaste} disabled={!activePlotId || !canFlip}>
-				Paste
-			</button>
-			<button className="btn" onClick={onTrim} disabled={!activePlotId || !canMirror}>
-				Trim selection
-			</button>
+			<ToolButton
+				label="+ Add plot"
+				tooltip="Create a new curve with the default formula, points, grid, snapping, and background settings."
+				onClick={onAddPlot}
+			/>
+			<ToolButton
+				label="Normalize"
+				tooltip="Resample the whole curve across the current X domain using the current X snap step, then clear the selection."
+				onClick={onNormalize}
+				disabled={!activePlotId || !canNormalize}
+			/>
+			<ToolButton
+				label="Flip Y"
+				tooltip="Invert the selected points vertically around Y = 0, then clamp and snap them to the current Y domain."
+				onClick={onFlipY}
+				disabled={!activePlotId || !canFlip}
+			/>
+			<ToolButton
+				label="Flip X"
+				tooltip="Reflect the selected points horizontally within their current X span, then clamp and snap them to the current X domain."
+				onClick={onFlipX}
+				disabled={!activePlotId || !canFlip}
+			/>
+			<ToolButton
+				label="Mirror L"
+				tooltip="Copy the selection to the left by mirroring it around the left edge and replace overlapping points in that span."
+				onClick={onMirrorLeft}
+				disabled={!activePlotId || !canMirror}
+			/>
+			<ToolButton
+				label="Mirror R"
+				tooltip="Copy the selection to the right by mirroring it around the right edge and replace overlapping points in that span."
+				onClick={onMirrorRight}
+				disabled={!activePlotId || !canMirror}
+			/>
+			<ToolButton
+				label="Duplicate L"
+				tooltip="Duplicate the selected span to the left with the same shape and replace overlapping points in the duplicated range."
+				onClick={onDuplicateLeft}
+				disabled={!activePlotId || !canFlip}
+			/>
+			<ToolButton
+				label="Duplicate R"
+				tooltip="Duplicate the selected span to the right with the same shape and replace overlapping points in the duplicated range."
+				onClick={onDuplicateRight}
+				disabled={!activePlotId || !canFlip}
+			/>
+			<ToolButton
+				label="Copy"
+				tooltip="Copy the selected points to the clipboard as point data and keep an in-memory copy as a fallback."
+				onClick={onCopy}
+				disabled={!activePlotId || !canFlip}
+			/>
+			<ToolButton
+				label="Paste"
+				tooltip="Replace the selected span with points from the clipboard, aligned to the first selected X position and clamped to the current domains."
+				onClick={onPaste}
+				disabled={!activePlotId || !canFlip}
+			/>
+			<ToolButton
+				label="Trim selection"
+				tooltip="Keep only points whose X positions fall within the selected range."
+				onClick={onTrim}
+				disabled={!activePlotId || !canMirror}
+			/>
 		</div>
 	);
 }
