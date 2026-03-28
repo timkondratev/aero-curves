@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction, ChangeEvent } from "react";
+import { useRef, type Dispatch, type SetStateAction, type ChangeEvent } from "react";
 import type { PlotState } from "../../state/reducer";
 import { clampValue } from "../../utils/geometry";
 import { onEnterBlur, startNumberDrag } from "./numberDrag";
@@ -12,7 +12,6 @@ type Props = {
 	setOffsetDraft: Dispatch<SetStateAction<OffsetDraft>>;
 	scaleDraft: ScaleDraft;
 	setScaleDraft: Dispatch<SetStateAction<ScaleDraft>>;
-	onChange: (plot: PlotState) => void;
 	handleBackgroundFile: (e: ChangeEvent<HTMLInputElement>) => void;
 	handleBackgroundOpacity: (e: ChangeEvent<HTMLInputElement>) => void;
 	handleBackgroundOffsetDraft: (axis: "x" | "y") => (e: ChangeEvent<HTMLInputElement>) => void;
@@ -47,22 +46,36 @@ export function BackgroundPanel({
 	scaleStepY,
 }: Props) {
 	const bg = plot.background;
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const loadedLabel = bg.name ?? "None";
+	const hasBackground = Boolean(bg.src);
+
 	return (
 		<div className="panel-section">
 			<div className="section-title">BACKGROUND IMAGE</div>
 			<div className="form-row">
 				<div className="row-label">Image</div>
-				<input className="row-control" type="file" accept="image/*" onChange={handleBackgroundFile} />
-			</div>
-			<div className="form-row inline-pair">
-				<div className="row-label">Loaded</div>
-				<div className="row-static">{bg.name ?? "None"}</div>
-				<div className="row-static">{bg.naturalWidth && bg.naturalHeight ? `${bg.naturalWidth}x${bg.naturalHeight}` : ""}</div>
-				{bg.src && (
-					<button className="btn" type="button" onClick={clearBackground}>
-						Clear
+				<div className="row-control button-row">
+					<button className="btn" type="button" onClick={() => fileInputRef.current?.click()}>
+						Add
 					</button>
-				)}
+					<button className="btn" type="button" onClick={clearBackground} disabled={!hasBackground}>
+						Remove
+					</button>
+					<input
+						ref={fileInputRef}
+						className="background-file-input"
+						type="file"
+						accept="image/*"
+						onChange={handleBackgroundFile}
+					/>
+				</div>
+			</div>
+			<div className="form-row">
+				<div className="row-label">Loaded</div>
+				<div className="row-static row-static-truncate" title={loadedLabel}>
+					{loadedLabel}
+				</div>
 			</div>
 			<div className="form-row inline-pair">
 				<div className="row-label">Opacity</div>
