@@ -169,6 +169,10 @@ input[type="radio"] {
 	align-items: center;
 }
 
+.toolbar-tooltip-target {
+	display: inline-flex;
+}
+
 .plot-card {
 	border: var(--border-transparent);
 	border-radius: var(--radius-2);
